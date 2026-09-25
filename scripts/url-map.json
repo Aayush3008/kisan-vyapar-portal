@@ -1,0 +1,19 @@
+{
+  "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&q=80&w=800": "https://rafxxtiuagdmvvkoauuw.supabase.co/storage/v1/object/public/crop-images/wheat-main.jpg",
+  "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&q=80&w=800": "https://rafxxtiuagdmvvkoauuw.supabase.co/storage/v1/object/public/crop-images/wheat-alt1.jpg",
+  "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=800": "https://rafxxtiuagdmvvkoauuw.supabase.co/storage/v1/object/public/crop-images/wheat-alt2.jpg",
+  "https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&q=80&w=800": "https://rafxxtiuagdmvvkoauuw.supabase.co/storage/v1/object/public/crop-images/tomato-main.jpg",
+  "https://images.unsplash.com/photo-1536304993881-ff6e9eefa2a6?auto=format&fit=crop&q=80&w=800": "https://rafxxtiuagdmvvkoauuw.supabase.co/storage/v1/object/public/community-uploads/resource-disease.jpg",
+  "https://images.unsplash.com/photo-1553279768-865429fa0078?auto=format&fit=crop&q=80&w=800": "https://rafxxtiuagdmvvkoauuw.supabase.co/storage/v1/object/public/crop-images/onion-main.jpg",
+  "https://images.unsplash.com/photo-1515543237350-b3eea1ec8082?auto=format&fit=crop&q=80&w=800": "https://rafxxtiuagdmvvkoauuw.supabase.co/storage/v1/object/public/crop-images/soybean-main.jpg",
+  "https://images.unsplash.com/photo-1618512496248-a07fe83aa8cb?auto=format&fit=crop&q=80&w=800": "https://rafxxtiuagdmvvkoauuw.supabase.co/storage/v1/object/public/crop-images/chilli-main.jpg",
+  "https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&q=80&w=800": "https://rafxxtiuagdmvvkoauuw.supabase.co/storage/v1/object/public/community-uploads/resource-spice.jpg",
+  "https://images.unsplash.com/photo-1471193945509-9ad0617afabf?auto=format&fit=crop&q=80&w=400": "https://rafxxtiuagdmvvkoauuw.supabase.co/storage/v1/object/public/crop-images/oilseed-main.jpg",
+  "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400": "https://rafxxtiuagdmvvkoauuw.supabase.co/storage/v1/object/public/crop-images/organic-main.jpg",
+  "https://images.unsplash.com/photo-1619566636858-adf3ef46400b?auto=format&fit=crop&q=80&w=400": "https://rafxxtiuagdmvvkoauuw.supabase.co/storage/v1/object/public/crop-images/fruit-main.jpg",
+  "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&q=80&w=400": "https://rafxxtiuagdmvvkoauuw.supabase.co/storage/v1/object/public/crop-images/vegetable-main.jpg",
+  "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&q=80&w=1200": "https://rafxxtiuagdmvvkoauuw.supabase.co/storage/v1/object/public/site-assets/hero-wheat-field.jpg",
+  "https://images.unsplash.com/photo-1500937386664-56d1dfef3854?auto=format&fit=crop&q=80&w=1200": "https://rafxxtiuagdmvvkoauuw.supabase.co/storage/v1/object/public/site-assets/hero-farmer.jpg",
+  "https://images.unsplash.com/photo-1518977676601-b53f82aba655?auto=format&fit=crop&q=80&w=1200": "https://rafxxtiuagdmvvkoauuw.supabase.co/storage/v1/object/public/site-assets/hero-harvest.jpg",
+  "https://images.unsplash.com/photo-1500937386664-56d1dfef3854?auto=format&fit=crop&q=80&w=800": "https://rafxxtiuagdmvvkoauuw.supabase.co/storage/v1/object/public/community-uploads/resource-soil.jpg"
+}

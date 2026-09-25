@@ -1,0 +1,284 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #FAFCFA;
+  --foreground: #1E2A22;
+  --color-emerald: #2D7A46;
+  --color-sprout: #6FBF78;
+  --color-gold: #B7791F;
+  --color-sage: #F3FAF4;
+  --color-muted: #617064;
+}
+
+body {
+  color: #1E2A22;
+  background-color: #FAFCFA;
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, .font-serif {
+  font-family: 'DM Serif Display', Georgia, serif;
+  line-height: 1.2;
+}
+
+/* Custom shimmer animation for buttons & skeleton loaders */
+@keyframes shimmerSweep {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.btn-shimmer {
+  background-size: 200% auto;
+  transition: all 0.3s ease;
+}
+
+.btn-shimmer:hover {
+  background-position: right center;
+}
+
+@keyframes marquee {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee {
+  display: flex;
+  width: max-content;
+  animation: marquee 28s linear infinite;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(90deg, #F3FAF4 25%, #E5F3E7 50%, #F3FAF4 75%);
+  background-size: 200% 100%;
+  animation: shimmerSweep 1.5s infinite;
+}
+
+/* Accessible focus visible ring */
+:focus-visible {
+  outline: 2px solid #2D7A46;
+  outline-offset: 2px;
+}
+
+/* Floating label styles */
+.floating-input:focus ~ .floating-label,
+.floating-input:not(:placeholder-shown) ~ .floating-label {
+  transform: translateY(-1.25rem) scale(0.85);
+  color: #2D7A46;
+}
+
+/* Subtle pulse animation for fresh badges */
+@keyframes gentlePulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.02);
+  }
+}
+
+.pulse-freshness {
+  animation: gentlePulse 2.5s infinite ease-in-out;
+}
+
+/* Infinite Marquee Ticker Animation */
+@keyframes marquee {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee {
+  display: inline-flex;
+  white-space: nowrap;
+  animation: marquee 25s linear infinite;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+/* Floating subtle elevation */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+/* =========================================================================
+   APPLE IPHONE LIQUID GLASS DESIGN SYSTEM (iOS Frosted Aero & Specular Depth)
+   ========================================================================= */
+
+/* Liquid Glass Core Surface */
+.liquid-glass {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(28px) saturate(210%);
+  -webkit-backdrop-filter: blur(28px) saturate(210%);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  box-shadow: 
+    0 16px 40px -10px rgba(0, 30, 15, 0.08),
+    0 1px 3px rgba(0, 0, 0, 0.03),
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -1px 1px 0 rgba(0, 0, 0, 0.02);
+  border-radius: 1.5rem;
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Liquid Glass Elevated Floating Card */
+.liquid-glass-card {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0.55) 100%);
+  backdrop-filter: blur(24px) saturate(200%);
+  -webkit-backdrop-filter: blur(24px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 
+    0 20px 48px -12px rgba(22, 55, 30, 0.10),
+    0 4px 14px -2px rgba(0, 0, 0, 0.04),
+    inset 0 1.5px 0 0 rgba(255, 255, 255, 0.95);
+  border-radius: 1.5rem;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.liquid-glass-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(111, 191, 120, 0.5);
+  box-shadow: 
+    0 28px 56px -12px rgba(45, 122, 70, 0.18),
+    0 6px 18px rgba(0, 0, 0, 0.05),
+    inset 0 2px 0 0 rgba(255, 255, 255, 1);
+}
+
+/* Specular Light Reflection Sheen */
+.liquid-glass-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 45%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.45) 0%, rgba(255, 255, 255, 0) 100%);
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+/* Liquid Glass Interactive Pill / Button */
+.liquid-glass-btn {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.9) 0%, rgba(240, 248, 242, 0.75) 100%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.05);
+  color: #1E2A22;
+  font-weight: 600;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.liquid-glass-btn:hover {
+  background: linear-gradient(180deg, #ffffff 0%, rgba(230, 245, 233, 0.95) 100%);
+  transform: translateY(-1.5px);
+  box-shadow: 
+    0 8px 20px rgba(45, 122, 70, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
+}
+
+.liquid-glass-btn:active {
+  transform: scale(0.98);
+}
+
+/* Emerald Liquid Glass Primary Button */
+.liquid-glass-btn-primary {
+  background: linear-gradient(180deg, #389557 0%, #246B3C 100%);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: 
+    0 8px 24px -4px rgba(45, 122, 70, 0.45),
+    0 2px 6px rgba(0, 0, 0, 0.08),
+    inset 0 1px 1px rgba(255, 255, 255, 0.4),
+    inset 0 -1px 1px rgba(0, 0, 0, 0.2);
+  color: #ffffff;
+  font-weight: 700;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.liquid-glass-btn-primary:hover {
+  background: linear-gradient(180deg, #3FA863 0%, #2A7C46 100%);
+  transform: translateY(-2px);
+  box-shadow: 
+    0 14px 32px -4px rgba(45, 122, 70, 0.55),
+    inset 0 1px 1.5px rgba(255, 255, 255, 0.6);
+}
+
+/* Liquid Glass Input */
+.liquid-glass-input {
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(14px) saturate(180%);
+  -webkit-backdrop-filter: blur(14px) saturate(180%);
+  border: 1.5px solid rgba(220, 235, 224, 0.8);
+  box-shadow: 
+    inset 0 2px 4px rgba(0, 0, 0, 0.02),
+    0 2px 6px rgba(0, 0, 0, 0.02);
+  border-radius: 1rem;
+  transition: all 0.25s ease;
+}
+
+.liquid-glass-input:focus {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: #2D7A46;
+  outline: none;
+  box-shadow: 
+    0 0 0 3px rgba(111, 191, 120, 0.25),
+    inset 0 1px 2px rgba(0, 0, 0, 0.01);
+}
+
+/* Liquid Glass Navigation Bar */
+.liquid-glass-nav {
+  background: rgba(250, 252, 250, 0.78);
+  backdrop-filter: blur(24px) saturate(190%);
+  -webkit-backdrop-filter: blur(24px) saturate(190%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 0 4px 20px -2px rgba(0, 30, 15, 0.04);
+}
+
+/* Liquid Glass Modal Container (iOS Alert / Sheet style) */
+.liquid-glass-modal {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.88) 0%, rgba(246, 252, 248, 0.78) 100%);
+  backdrop-filter: blur(40px) saturate(220%);
+  -webkit-backdrop-filter: blur(40px) saturate(220%);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 
+    0 32px 80px -16px rgba(18, 48, 28, 0.28),
+    0 8px 24px -4px rgba(0, 0, 0, 0.08),
+    inset 0 2px 1px 0 rgba(255, 255, 255, 0.95);
+  border-radius: 2rem;
+}

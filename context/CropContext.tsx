@@ -1,0 +1,423 @@
+'use client';
+
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { MOCK_CROPS } from '@/lib/mock-data';
+import { CropListing } from '@/types';
+
+export interface CropFeedback {
+  id: string;
+  crop_id: string;
+  crop_title: string;
+  farmer_id?: string;
+  user_name: string;
+  user_district?: string;
+  rating: number; // 1 to 5
+  comment: string;
+  created_at: string;
+}
+
+export interface FarmerIncomingOrder {
+  id: string;
+  orderNumber: string;
+  buyerName: string;
+  buyerPhone: string;
+  cropTitle: string;
+  cropId?: string;
+  farmerId?: string;
+  variety: string;
+  quantity: number;
+  unit: string;
+  pricePerUnit: number;
+  discountPercent?: number;
+  discountAmount?: number;
+  totalAmount: number;
+  paymentMethod: 'cod' | 'razorpay';
+  paymentStatus: 'pending' | 'paid' | 'escrow';
+  fulfillmentStatus: 'new' | 'accepted' | 'packed' | 'dispatched' | 'delivered' | 'cancelled';
+  deliveryType: 'Farm Pickup' | 'Farmer Door Delivery';
+  deliveryAddress: string;
+  orderDate: string;
+  transportVehicleNumber?: string;
+  trackingPhone?: string;
+}
+
+const INITIAL_FEEDBACK: CropFeedback[] = [
+  {
+    id: 'fb-1',
+    crop_id: 'crop-1',
+    crop_title: 'Certified Sharbati Wheat (Sehore Golden Grain)',
+    farmer_id: 'farmer-1',
+    user_name: 'Vikas Aggarwal (Flour Traders Meerut)',
+    user_district: 'Meerut, Uttar Pradesh',
+    rating: 5,
+    comment: 'Exceptional golden lustre and zero moisture. Delivered right on time with full weighment accuracy. Best wheat batch in Western UP / MP region!',
+    created_at: '2026-09-24T14:30:00Z',
+  },
+  {
+    id: 'fb-2',
+    crop_id: 'crop-2',
+    crop_title: '1121 Pusa Basmati Paddy (Super Extra Long)',
+    farmer_id: 'farmer-2',
+    user_name: 'Rajesh Tyagi (Mandi Trader)',
+    user_district: 'Meerut, Uttar Pradesh',
+    rating: 5,
+    comment: 'Grain length after milling is over 8.35mm. Great direct farmer discount provided for bulk procurement!',
+    created_at: '2026-09-23T11:20:00Z',
+  },
+  {
+    id: 'fb-3',
+    crop_id: 'crop-3',
+    crop_title: 'Devgad Alphonso Mangoes (GI Certified)',
+    farmer_id: 'farmer-3',
+    user_name: 'Pooja Singhal',
+    user_district: 'Noida, Uttar Pradesh',
+    rating: 5,
+    comment: 'Crisp sweetness and genuine carbide-free ripening. Hay packing kept all crates in pristine export condition.',
+    created_at: '2026-09-22T09:15:00Z',
+  },
+  {
+    id: 'fb-4',
+    crop_id: 'crop-13',
+    crop_title: 'Co-0238 High-Brix Juicing Sugarcane',
+    farmer_id: 'farmer-1',
+    user_name: 'Suresh Chandra (Khandasari Processor)',
+    user_district: 'Mawana, Meerut, UP',
+    rating: 5,
+    comment: 'Extremely sweet cane stalks with 21° brix. Farm-gate weighing at Partapur bypass was transparent and truck arrived within 2 hours.',
+    created_at: '2026-09-25T16:00:00Z',
+  },
+  {
+    id: 'fb-5',
+    crop_id: 'crop-5',
+    crop_title: 'Nashik Red Onions (Garwa Export Quality)',
+    farmer_id: 'farmer-5',
+    user_name: 'Anil Gupta (Wholesale Spices Delhi)',
+    user_district: 'Azadpur Mandi, Delhi',
+    rating: 5,
+    comment: 'Uniform grading 55mm and completely dry outer peel. Zero rot in 40 quintals lot. Saved 15% compared to local mandi middlemen.',
+    created_at: '2026-09-25T11:45:00Z',
+  },
+  {
+    id: 'fb-6',
+    crop_id: 'crop-15',
+    crop_title: 'GI-Certified Pure Pampore Mongra Saffron',
+    farmer_id: 'farmer-8',
+    user_name: 'Chef Kabir Kapoor (Fine Dining)',
+    user_district: 'Gurugram, Haryana',
+    rating: 5,
+    comment: 'Exquisite aroma and blood-red color release. Verified genuine Grade-1 Kashmiri harvest. Escrow delivery gave complete peace of mind.',
+    created_at: '2026-09-24T18:10:00Z',
+  }
+];
+
+const INITIAL_ORDERS: FarmerIncomingOrder[] = [
+  {
+    id: 'ord-1',
+    orderNumber: 'ORD-KVP-10001',
+    buyerName: 'Priya Sundaram (Spice Export Trade)',
+    buyerPhone: '+91 98450 12890',
+    cropTitle: 'Guntur Teja Chillies (Stemless)',
+    cropId: 'crop-4',
+    farmerId: 'farmer-4',
+    variety: 'Teja S17 Export Quality',
+    quantity: 2,
+    unit: 'Quintals',
+    pricePerUnit: 19800,
+    discountPercent: 5,
+    discountAmount: 1980,
+    totalAmount: 37620,
+    paymentMethod: 'razorpay',
+    paymentStatus: 'paid',
+    fulfillmentStatus: 'new',
+    deliveryType: 'Farmer Door Delivery',
+    deliveryAddress: 'Plot 44, Food Processing Zone, Vijayawada, AP - 520007',
+    orderDate: 'Today, 2:15 PM',
+  },
+  {
+    id: 'ord-2',
+    orderNumber: 'ORD-KVP-10002',
+    buyerName: 'Apex Flour Mills Ltd.',
+    buyerPhone: '+91 94250 88712',
+    cropTitle: 'Certified Sharbati Wheat',
+    cropId: 'crop-1',
+    farmerId: 'farmer-1',
+    variety: 'C-306 Golden Grain',
+    quantity: 25,
+    unit: 'Quintals',
+    pricePerUnit: 3450,
+    discountPercent: 8,
+    discountAmount: 6900,
+    totalAmount: 79350,
+    paymentMethod: 'cod',
+    paymentStatus: 'pending',
+    fulfillmentStatus: 'accepted',
+    deliveryType: 'Farm Pickup',
+    deliveryAddress: 'Farm Gate Pickup arranged by buyer (Truck MP-04-E-8821)',
+    orderDate: 'Yesterday, 5:30 PM',
+  },
+];
+
+interface CropContextType {
+  crops: any[];
+  addCrop: (cropData: any) => any;
+  updateCrop: (id: string, updates: Partial<any>) => void;
+  deleteCrop: (id: string) => void;
+  getCropBySlug: (slug: string) => any | undefined;
+  // Feedback methods
+  feedbacks: CropFeedback[];
+  addFeedback: (feedback: Omit<CropFeedback, 'id' | 'created_at'>) => void;
+  getCropFeedbacks: (cropId: string) => CropFeedback[];
+  // Orders placed by users shown in farmer workspace
+  farmerOrders: FarmerIncomingOrder[];
+  addFarmerOrder: (order: Omit<FarmerIncomingOrder, 'id'>) => void;
+  updateFarmerOrderStatus: (orderId: string, status: FarmerIncomingOrder['fulfillmentStatus'], dispatchInfo?: { vehicleNo?: string; trackingPhone?: string }) => void;
+}
+
+const CropContext = createContext<CropContextType | undefined>(undefined);
+
+export function CropProvider({ children }: { children: React.ReactNode }) {
+  const [crops, setCrops] = useState<any[]>(() => {
+    return MOCK_CROPS.map((c: any, i: number) => ({
+      ...c,
+      discount_percentage: c.discount_percentage || (i % 2 === 0 ? 10 : 5), // default farm discount
+      discount_price_per_unit: c.discount_price_per_unit || (c.price_per_unit * (1 - (i % 2 === 0 ? 0.10 : 0.05))),
+    }));
+  });
+
+  const [feedbacks, setFeedbacks] = useState<CropFeedback[]>(INITIAL_FEEDBACK);
+  const [farmerOrders, setFarmerOrders] = useState<FarmerIncomingOrder[]>(INITIAL_ORDERS);
+
+  // Load custom persisted crops, feedbacks, and orders from localStorage on mount
+  useEffect(() => {
+    try {
+      const storedCrops = localStorage.getItem('kvp_custom_crops');
+      if (storedCrops) {
+        const parsed = JSON.parse(storedCrops);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const customIds = new Set(parsed.map((c: any) => c.id));
+          const baseRemaining = MOCK_CROPS.filter((c: any) => !customIds.has(c.id)).map((c: any, i: number) => ({
+            ...c,
+            discount_percentage: c.discount_percentage || (i % 2 === 0 ? 10 : 5),
+            discount_price_per_unit: c.discount_price_per_unit || (c.price_per_unit * (1 - (i % 2 === 0 ? 0.10 : 0.05))),
+          }));
+          setCrops([...parsed, ...baseRemaining]);
+        }
+      }
+
+      const storedFeedbacks = localStorage.getItem('kvp_feedbacks');
+      if (storedFeedbacks) {
+        const parsedF = JSON.parse(storedFeedbacks);
+        if (Array.isArray(parsedF) && parsedF.length > 0) {
+          setFeedbacks(parsedF);
+        }
+      }
+
+      const storedOrders = localStorage.getItem('kvp_farmer_orders');
+      if (storedOrders) {
+        const parsedO = JSON.parse(storedOrders);
+        if (Array.isArray(parsedO) && parsedO.length > 0) {
+          setFarmerOrders(parsedO);
+        }
+      }
+    } catch (e) {
+      console.error('Error loading data from storage:', e);
+    }
+  }, []);
+
+  const saveCustomCrops = (updatedList: any[]) => {
+    try {
+      const baseIds = new Set(MOCK_CROPS.map((c) => c.id));
+      const customOnly = updatedList.filter((c) => !baseIds.has(c.id) || c._is_custom);
+      localStorage.setItem('kvp_custom_crops', JSON.stringify(customOnly));
+    } catch (e) {
+      console.error('Error saving custom crops to storage:', e);
+    }
+  };
+
+  const addCrop = (cropData: any) => {
+    const slug = cropData.title
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '') + '-' + Math.floor(1000 + Math.random() * 9000);
+
+    const price = Number(cropData.pricePerUnit || cropData.price_per_unit || 3000);
+    const discountPercent = Number(cropData.discountPercentage ?? cropData.discount_percentage ?? 0);
+    const discountPrice = discountPercent > 0 ? price * (1 - discountPercent / 100) : price;
+
+    const newCrop = {
+      id: `crop-${Date.now()}`,
+      farmer_id: cropData.farmer_id || 'farmer-custom',
+      farmer_name: cropData.farmer_name || 'Rameshwar Patel',
+      farm_name: cropData.farm_name || 'Patel Organic Agro Farms',
+      farmer_rating: 5.0,
+      farmer_verified: true,
+      category_id: cropData.category_id || 'cat-grains',
+      category_name: cropData.category_name || cropData.category || 'Grains & Cereals',
+      title: cropData.title,
+      slug: slug,
+      variety: cropData.variety || 'Certified Hybrid',
+      grade: cropData.grade || 'Grade A',
+      description: cropData.description || 'Freshly harvested agricultural produce direct from farm gate.',
+      unit: cropData.unit || 'quintal',
+      price_per_unit: price,
+      discount_percentage: discountPercent,
+      discount_price_per_unit: discountPrice,
+      market_price_per_unit: Number(cropData.market_price_per_unit || (price * 1.08)),
+      distance_km: cropData.distance_km || Math.floor(5 + Math.random() * 25),
+      min_order_quantity: Number(cropData.minOrderQuantity || cropData.min_order_quantity || 1),
+      stock_quantity: Number(cropData.totalQuantity || cropData.stock_quantity || 100),
+      reserved_quantity: 0,
+      harvest_date: cropData.harvestDate || cropData.harvest_date || new Date().toISOString().split('T')[0],
+      district: cropData.district || 'Meerut',
+      state: cropData.state || 'Uttar Pradesh',
+      pickup_available: cropData.pickupAvailable ?? cropData.pickup_available ?? true,
+      delivery_available: cropData.deliveryAvailable ?? cropData.delivery_available ?? true,
+      delivery_fee_per_unit: Number(cropData.deliveryFee || cropData.delivery_fee_per_unit || 120),
+      soil_type: cropData.soilType || 'Deep Alluvial Loam',
+      farming_method: cropData.farmingMethod || 'Natural Organic',
+      status: 'active',
+      primary_image: cropData.imageUrl || cropData.primary_image || 'https://rafxxtiuagdmvvkoauuw.supabase.co/storage/v1/object/public/crop-images/wheat-main.jpg',
+      images: [
+        cropData.imageUrl || cropData.primary_image || 'https://rafxxtiuagdmvvkoauuw.supabase.co/storage/v1/object/public/crop-images/wheat-main.jpg',
+        'https://rafxxtiuagdmvvkoauuw.supabase.co/storage/v1/object/public/crop-images/wheat-alt1.jpg',
+        'https://rafxxtiuagdmvvkoauuw.supabase.co/storage/v1/object/public/crop-images/wheat-alt2.jpg',
+      ],
+      created_at: new Date().toISOString(),
+      _is_custom: true,
+    };
+
+    setCrops((prev) => {
+      const updated = [newCrop, ...prev];
+      saveCustomCrops(updated);
+      return updated;
+    });
+
+    return newCrop;
+  };
+
+  const updateCrop = (id: string, updates: Partial<any>) => {
+    setCrops((prev) => {
+      const updated = prev.map((c) => {
+        if (c.id === id) {
+          const merged = { ...c, ...updates, _is_custom: true };
+          if (updates.discount_percentage !== undefined || updates.price_per_unit !== undefined) {
+            const disc = updates.discount_percentage !== undefined ? Number(updates.discount_percentage) : (c.discount_percentage || 0);
+            const pr = updates.price_per_unit !== undefined ? Number(updates.price_per_unit) : c.price_per_unit;
+            merged.discount_percentage = disc;
+            merged.discount_price_per_unit = disc > 0 ? pr * (1 - disc / 100) : pr;
+          }
+          return merged;
+        }
+        return c;
+      });
+      saveCustomCrops(updated);
+      return updated;
+    });
+  };
+
+  const deleteCrop = (id: string) => {
+    setCrops((prev) => {
+      const updated = prev.filter((c) => c.id !== id);
+      saveCustomCrops(updated);
+      return updated;
+    });
+  };
+
+  const getCropBySlug = (slug: string) => {
+    return crops.find((c) => c.slug === slug);
+  };
+
+  // Feedback Handling
+  const addFeedback = (feedback: Omit<CropFeedback, 'id' | 'created_at'>) => {
+    const newFb: CropFeedback = {
+      ...feedback,
+      id: `fb-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      created_at: new Date().toISOString(),
+    };
+    setFeedbacks((prev) => {
+      const updated = [newFb, ...prev];
+      try {
+        localStorage.setItem('kvp_feedbacks', JSON.stringify(updated));
+      } catch (e) {
+        console.error('Failed to save feedback:', e);
+      }
+      return updated;
+    });
+  };
+
+  const getCropFeedbacks = (cropId: string) => {
+    return feedbacks.filter((f) => f.crop_id === cropId);
+  };
+
+  // Farmer Incoming Orders Handling
+  const addFarmerOrder = (order: Omit<FarmerIncomingOrder, 'id'>) => {
+    const newOrder: FarmerIncomingOrder = {
+      ...order,
+      id: `ord-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+    };
+    setFarmerOrders((prev) => {
+      const updated = [newOrder, ...prev];
+      try {
+        localStorage.setItem('kvp_farmer_orders', JSON.stringify(updated));
+      } catch (e) {
+        console.error('Failed to save farmer order:', e);
+      }
+      return updated;
+    });
+  };
+
+  const updateFarmerOrderStatus = (
+    orderId: string, 
+    status: FarmerIncomingOrder['fulfillmentStatus'],
+    dispatchInfo?: { vehicleNo?: string; trackingPhone?: string }
+  ) => {
+    setFarmerOrders((prev) => {
+      const updated = prev.map((o) => {
+        if (o.id === orderId || o.orderNumber === orderId) {
+          return {
+            ...o,
+            fulfillmentStatus: status,
+            transportVehicleNumber: dispatchInfo?.vehicleNo || o.transportVehicleNumber,
+            trackingPhone: dispatchInfo?.trackingPhone || o.trackingPhone,
+          };
+        }
+        return o;
+      });
+      try {
+        localStorage.setItem('kvp_farmer_orders', JSON.stringify(updated));
+      } catch (e) {
+        console.error('Failed to update farmer orders:', e);
+      }
+      return updated;
+    });
+  };
+
+  return (
+    <CropContext.Provider
+      value={{
+        crops,
+        addCrop,
+        updateCrop,
+        deleteCrop,
+        getCropBySlug,
+        feedbacks,
+        addFeedback,
+        getCropFeedbacks,
+        farmerOrders,
+        addFarmerOrder,
+        updateFarmerOrderStatus,
+      }}
+    >
+      {children}
+    </CropContext.Provider>
+  );
+}
+
+export function useCrops() {
+  const context = useContext(CropContext);
+  if (!context) {
+    throw new Error('useCrops must be used within a CropProvider');
+  }
+  return context;
+}
