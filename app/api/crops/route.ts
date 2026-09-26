@@ -76,11 +76,10 @@ export async function POST(request: Request) {
       soil_type: body.soilType || 'Deep Alluvial Loam',
       farming_method: body.farmingMethod || 'Natural Organic',
       status: 'active',
-      primary_image: body.imageUrl || body.primary_image || 'https://rafxxtiuagdmvvkoauuw.supabase.co/storage/v1/object/public/crop-images/wheat-main.jpg',
+      primary_image: body.imageUrl || body.primary_image || 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=800&q=80',
       images: [
-        body.imageUrl || body.primary_image || 'https://rafxxtiuagdmvvkoauuw.supabase.co/storage/v1/object/public/crop-images/wheat-main.jpg',
-        'https://rafxxtiuagdmvvkoauuw.supabase.co/storage/v1/object/public/crop-images/wheat-alt1.jpg',
-        'https://rafxxtiuagdmvvkoauuw.supabase.co/storage/v1/object/public/crop-images/wheat-alt2.jpg',
+        body.imageUrl || body.primary_image || 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=800&q=80',
       ],
     };
 
@@ -98,7 +97,32 @@ export async function POST(request: Request) {
       );
     }
 
-    console.log(`✅ [KVP Crops] Created listing "${body.title}" (ID: ${data.id}) in Supabase`);
+    console.log(`✅ [KVP Crops] Created listing "${body.title}" (ID: ${data.id}) in app_crop_listings`);
+
+    // Also sync to legacy crop_listings table if possible
+    try {
+      const { data: firstFarmer } = await supabase.from('profiles').select('id').eq('role', 'farmer').limit(1).maybeSingle();
+      const farmerId = firstFarmer?.id || '33333333-0001-0000-0000-000000000001';
+
+      await supabase.from('crop_listings').insert({
+        farmer_id: farmerId,
+        title: body.title,
+        slug,
+        variety: body.variety || 'Certified Hybrid',
+        grade: body.grade || 'Grade A',
+        description: body.description || 'Fresh harvest produce.',
+        unit: body.unit || 'quintal',
+        price_per_unit: price,
+        min_order_quantity: Number(body.minOrderQuantity || 1),
+        stock_quantity: Number(body.totalQuantity || 100),
+        harvest_date: body.harvestDate || new Date().toISOString().split('T')[0],
+        district: body.district || 'Meerut',
+        state: body.state || 'Uttar Pradesh',
+        status: 'active',
+      });
+    } catch (legacyErr) {
+      console.warn('[KVP Crops] Optional crop_listings sync skipped:', legacyErr);
+    }
 
     return NextResponse.json({ success: true, crop: data });
   } catch (err: any) {

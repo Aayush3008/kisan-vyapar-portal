@@ -274,13 +274,13 @@ export const MOCK_CROPS = [
 ];
 
 export const MOCK_CATEGORIES = [
-  { id: "cat-grains",     name: "Grains & Cereals",   slug: "grains-cereals",   image: `${SB}/crop-images/wheat-main.jpg`,      count: "180+ Listings" },
-  { id: "cat-pulses",     name: "Pulses & Legumes",   slug: "pulses-legumes",   image: `${SB}/crop-images/soybean-main.jpg`,    count: "115 Listings" },
-  { id: "cat-fruits",     name: "Fresh Fruits",        slug: "fresh-fruits",     image: `${SB}/crop-images/fruit-main.jpg`,      count: "140+ Listings" },
-  { id: "cat-vegetables", name: "Vegetables",          slug: "vegetables",       image: `${SB}/crop-images/vegetable-main.jpg`,  count: "260+ Listings" },
-  { id: "cat-spices",     name: "Spices",              slug: "spices",           image: `${SB}/crop-images/spice-main.jpg`,      count: "95 Listings" },
-  { id: "cat-oilseeds",   name: "Oilseeds",            slug: "oilseeds",         image: `${SB}/crop-images/oilseed-main.jpg`,    count: "68 Listings" },
-  { id: "cat-organic",    name: "Organic Produce",     slug: "organic-produce",  image: `${SB}/crop-images/organic-main.jpg`,    count: "110 Certified" },
+  { id: "cat-grains",     name: "Grains & Cereals",   slug: "grains-cereals",   image: "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=600&q=80", count: "180+ Listings" },
+  { id: "cat-pulses",     name: "Pulses & Legumes",   slug: "pulses-legumes",   image: "https://images.unsplash.com/photo-1515543237350-b3eea1ec8082?auto=format&fit=crop&w=600&q=80", count: "115 Listings" },
+  { id: "cat-fruits",     name: "Fresh Fruits",        slug: "fresh-fruits",     image: "https://images.unsplash.com/photo-1619566636858-adf3ef46400b?auto=format&fit=crop&w=600&q=80", count: "140+ Listings" },
+  { id: "cat-vegetables", name: "Vegetables",          slug: "vegetables",       image: "https://images.unsplash.com/photo-1597362925123-77861d3fbac7?auto=format&fit=crop&w=600&q=80", count: "260+ Listings" },
+  { id: "cat-spices",     name: "Spices",              slug: "spices",           image: "https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=600&q=80", count: "95 Listings" },
+  { id: "cat-oilseeds",   name: "Oilseeds",            slug: "oilseeds",         image: "https://images.unsplash.com/photo-1471193945509-9ad0617afabf?auto=format&fit=crop&w=600&q=80", count: "68 Listings" },
+  { id: "cat-organic",    name: "Organic Produce",     slug: "organic-produce",  image: "https://images.unsplash.com/photo-1618160702438-9b02ab6515c9?auto=format&fit=crop&w=600&q=80", count: "110 Certified" },
 ];
 
 export const MOCK_RESOURCES = [
@@ -288,42 +288,42 @@ export const MOCK_RESOURCES = [
     id: "res-1", title: "Optimizing Loamy vs. Sandy Soil Fertility for High-Yield Wheat",
     slug: "soil-fertility-wheat-management", topic: "soil_types" as const, topic_label: "Soil Health & Prep",
     summary: "Discover targeted micro-nutrient balance, humic acid enrichment, and water retention techniques for North Indian soil topologies.",
-    thumbnail_url: `${SB}/community-uploads/resource-soil.jpg`, read_time: "6 min read", published_date: "Sep 18, 2026",
+    thumbnail_url: "https://images.unsplash.com/photo-1500937386664-56d1dfef3854?auto=format&fit=crop&w=600&q=80", read_time: "6 min read", published_date: "Sep 18, 2026",
     content: "Healthy soil is the foundation of high-grade agricultural production. In loamy soils, maintaining porosity while preserving organic carbon (SOC) levels above 0.75% is vital for grain development."
   },
   {
     id: "res-2", title: "Early Warning & Organic Remediation of Yellow Rust in Basmati Paddy",
     slug: "basmati-yellow-rust-remediation", topic: "plant_diseases" as const, topic_label: "Plant Diseases",
     summary: "Recognize early foliage lesions, humidity triggers, and deploy Trichoderma viride bio-fungicides before panicle emergence.",
-    thumbnail_url: `${SB}/community-uploads/resource-disease.jpg`, read_time: "8 min read", published_date: "Sep 22, 2026",
+    thumbnail_url: "https://images.unsplash.com/photo-1530836369250-ef72a3f5cda8?auto=format&fit=crop&w=600&q=80", read_time: "8 min read", published_date: "Sep 22, 2026",
     content: "Puccinia striiformis f. sp. tritici flourishes when night temperatures hover between 10-15°C with heavy morning dews."
   },
   {
     id: "res-3", title: "Integrated Pest Management (IPM) for Chilli & Cotton Crops",
     slug: "integrated-pest-management-chilli-cotton", topic: "pest_management" as const, topic_label: "Pest Management",
     summary: "Employ pheromone traps, yellow sticky sheets, and predatory mites to suppress whiteflies and thrips sustainably.",
-    thumbnail_url: `${SB}/community-uploads/resource-spice.jpg`, read_time: "5 min read", published_date: "Sep 20, 2026",
+    thumbnail_url: "https://images.unsplash.com/photo-1592417817098-8f3d6910985b?auto=format&fit=crop&w=600&q=80", read_time: "5 min read", published_date: "Sep 20, 2026",
     content: "Over-reliance on synthetic pyrethroids leads to secondary pest resurgence."
   },
   {
     id: "res-4", title: "Upper Gangetic Alluvial Soil Management: Meerut & Western UP Field Guide",
     slug: "gangetic-alluvial-soil-management-meerut", topic: "soil_types" as const, topic_label: "Soil Health & Prep",
     summary: "Strategies for managing soil organic carbon, balancing nitrogen leaching in sugarcane-wheat cycles, and subsoil aeration.",
-    thumbnail_url: `${SB}/community-uploads/resource-soil.jpg`, read_time: "7 min read", published_date: "Sep 25, 2026",
+    thumbnail_url: "https://images.unsplash.com/photo-1574943320219-553eb213f72d?auto=format&fit=crop&w=600&q=80", read_time: "7 min read", published_date: "Sep 25, 2026",
     content: "Western Uttar Pradesh's Doab belt boasts exceptional natural silt deposition. In intense two-crop rotations, replenishing potassium and applying gypsum in slightly saline patches boosts root depth by up to 35%."
   },
   {
     id: "res-5", title: "Microclimate & Frost Warning Protocols for Rabi Vegetable Beds",
     slug: "frost-warning-protocols-rabi-vegetables", topic: "plant_diseases" as const, topic_label: "Plant Diseases",
     summary: "How to use light evening irrigation and straw mulching to shield tomato, potato, and chilli nurseries when temperatures dip below 4°C.",
-    thumbnail_url: `${SB}/community-uploads/resource-disease.jpg`, read_time: "5 min read", published_date: "Sep 24, 2026",
+    thumbnail_url: "https://images.unsplash.com/photo-1597362925123-77861d3fbac7?auto=format&fit=crop&w=600&q=80", read_time: "5 min read", published_date: "Sep 24, 2026",
     content: "Radiation frosts cause cell rupture in tender solanaceous crops. Setting up light smoke barriers and maintaining 60% soil moisture retains subterranean warmth overnight."
   },
   {
     id: "res-6", title: "Solar Cold Storage & Farm-Gate Primary Processing Economics",
     slug: "solar-cold-storage-farm-gate-processing", topic: "pest_management" as const, topic_label: "Pest Management",
     summary: "Step-by-step payback breakdown for on-farm solar pre-coolers that cut post-harvest transit losses from 28% to under 4%.",
-    thumbnail_url: `${SB}/community-uploads/resource-spice.jpg`, read_time: "9 min read", published_date: "Sep 23, 2026",
+    thumbnail_url: "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=600&q=80", read_time: "9 min read", published_date: "Sep 23, 2026",
     content: "Pre-cooling fruit within 4 hours of harvest arrests enzymatic breakdown and doubles shelf life during cross-state transit to metropolitan hubs."
   }
 ];

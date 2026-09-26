@@ -92,8 +92,11 @@ export default function CartPage() {
               >
                 <div className="flex items-center space-x-4 min-w-0">
                   <img
-                    src={item.crop.primary_image}
+                    src={item.crop.primary_image || "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=400&q=80"}
                     alt={item.crop.title}
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=400&q=80";
+                    }}
                     className="w-20 h-20 rounded-xl object-cover border border-black/5 shrink-0"
                   />
                   <div className="min-w-0">
@@ -122,7 +125,7 @@ export default function CartPage() {
                   {/* Quantity Stepper */}
                   <div className="flex items-center border border-black/10 rounded-xl bg-white px-2 py-1 justify-between w-28">
                     <button
-                      onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                      onClick={() => updateQuantity(item.listing_id, item.quantity - 1)}
                       disabled={item.quantity <= item.crop.min_order_quantity}
                       className="w-6 h-6 rounded bg-stone-100 flex items-center justify-center font-bold text-xs disabled:opacity-30"
                     >
@@ -132,7 +135,7 @@ export default function CartPage() {
                       {item.quantity}
                     </span>
                     <button
-                      onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                      onClick={() => updateQuantity(item.listing_id, item.quantity + 1)}
                       disabled={item.quantity >= item.crop.stock_quantity}
                       className="w-6 h-6 rounded bg-stone-100 flex items-center justify-center font-bold text-xs disabled:opacity-30"
                     >
@@ -150,7 +153,7 @@ export default function CartPage() {
                   </div>
 
                   <button
-                    onClick={() => removeItem(item.id)}
+                    onClick={() => removeItem(item.listing_id)}
                     className="p-1.5 rounded-lg border border-black/10 hover:bg-red-50 hover:border-red-200 text-stone-400 hover:text-red-600 transition-colors"
                     title="Remove item"
                   >

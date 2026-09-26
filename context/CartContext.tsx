@@ -83,14 +83,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
-  const removeItem = (listingId: string) => {
-    setItems((prev) => prev.filter((item) => item.listing_id !== listingId));
+  const removeItem = (idOrListingId: string) => {
+    setItems((prev) => prev.filter((item) => item.listing_id !== idOrListingId && item.id !== idOrListingId));
   };
 
-  const updateQuantity = (listingId: string, quantity: number) => {
+  const updateQuantity = (idOrListingId: string, quantity: number) => {
     setItems((prev) =>
       prev.map((item) => {
-        if (item.listing_id === listingId) {
+        if (item.listing_id === idOrListingId || item.id === idOrListingId) {
           const constrainedQty = Math.max(item.crop.min_order_quantity, Math.min(quantity, item.crop.stock_quantity));
           return {
             ...item,

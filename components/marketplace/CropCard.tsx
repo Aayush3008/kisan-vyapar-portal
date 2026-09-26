@@ -53,8 +53,11 @@ export function CropCard({ crop }: CropCardProps) {
         {/* Image & Badges */}
         <div className="relative aspect-[4/3] w-full overflow-hidden bg-stone-100">
           <img
-            src={crop.primary_image || "https://rafxxtiuagdmvvkoauuw.supabase.co/storage/v1/object/public/crop-images/wheat-main.jpg"}
+            src={crop.primary_image || "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=800&q=80"}
             alt={crop.title}
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).src = "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=800&q=80";
+            }}
             className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
           />
 
@@ -210,8 +213,11 @@ export function CropCard({ crop }: CropCardProps) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           <div className="aspect-square rounded-2xl overflow-hidden bg-stone-100 border border-black/5">
             <img
-              src={crop.primary_image || "https://rafxxtiuagdmvvkoauuw.supabase.co/storage/v1/object/public/crop-images/wheat-main.jpg"}
+              src={crop.primary_image || "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=800&q=80"}
               alt={crop.title}
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src = "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=800&q=80";
+              }}
               className="w-full h-full object-cover"
             />
           </div>

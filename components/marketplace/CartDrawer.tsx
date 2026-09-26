@@ -91,8 +91,11 @@ export function CartDrawer() {
                         className="flex gap-4 p-3 rounded-xl border border-black/5 bg-[#FAFCFA] hover:bg-white transition-colors"
                       >
                         <img
-                          src={item.crop.primary_image || "https://rafxxtiuagdmvvkoauuw.supabase.co/storage/v1/object/public/crop-images/wheat-main.jpg"}
+                          src={item.crop.primary_image || "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=400&q=80"}
                           alt={item.crop.title}
+                          onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).src = "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=400&q=80";
+                          }}
                           className="w-20 h-20 object-cover rounded-lg shrink-0 border border-black/5"
                         />
                         <div className="flex-1 min-w-0 flex flex-col justify-between">

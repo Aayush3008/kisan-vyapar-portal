@@ -112,6 +112,9 @@ export default function CropDetailPage({ params }: { params: { slug: string } })
                 key={selectedImage}
                 src={selectedImage}
                 alt={crop.title}
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).src = "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=800&q=80";
+                }}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
@@ -148,7 +151,14 @@ export default function CropDetailPage({ params }: { params: { slug: string } })
                     selectedImage === img ? 'border-[#2D7A46] scale-105' : 'border-transparent opacity-70 hover:opacity-100'
                   }`}
                 >
-                  <img src={img} alt="thumbnail" className="w-full h-full object-cover" />
+                  <img
+                    src={img}
+                    alt="thumbnail"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=800&q=80";
+                    }}
+                    className="w-full h-full object-cover"
+                  />
                 </button>
               ))}
             </div>
