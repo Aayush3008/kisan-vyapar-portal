@@ -1,5 +1,12 @@
 import { NextResponse } from 'next/server';
-import { createUser } from '@/lib/local-db';
+import { getSupabaseAdmin } from '@/lib/supabase/db';
+import crypto from 'crypto';
+
+function hashPassword(password: string): string {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.createHash('sha256').update(salt + password).digest('hex');
+  return `${salt}:${hash}`;
+}
 
 export async function POST(request: Request) {
   try {
@@ -30,20 +37,63 @@ export async function POST(request: Request) {
       );
     }
 
-    // Create user in local JSON database
-    const newUser = createUser({
-      fullName,
-      phone,
-      password,
-      role,
-      district,
-      state,
-      pincode,
-      farmName,
-      cropsGrown,
-    });
+    const supabase = getSupabaseAdmin();
+    const normalizedPhone = phone.trim().replace(/\D/g, '');
+    const email = `${normalizedPhone}@kisanvyapar.in`;
 
-    console.log(`✅ [KVP Register] ${role} '${fullName}' (ID: ${newUser.id}) saved to local database.`);
+    // Check if user with this phone already exists
+    const { data: existing } = await supabase
+      .from('app_users')
+      .select('id')
+      .eq('phone', normalizedPhone)
+      .maybeSingle();
+
+    if (existing) {
+      return NextResponse.json(
+        { error: 'An account with this mobile number is already registered. Please Sign In instead.' },
+        { status: 409 }
+      );
+    }
+
+    // Build user record
+    const now = new Date().toISOString();
+    const userRecord: Record<string, any> = {
+      email,
+      full_name: fullName.trim(),
+      phone: normalizedPhone,
+      password_hash: hashPassword(password),
+      role,
+      district: district?.trim() || 'Meerut',
+      state: state?.trim() || 'Uttar Pradesh',
+      pincode: pincode?.trim() || '250002',
+      avatar_url: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(fullName.trim())}`,
+      created_at: now,
+      updated_at: now,
+    };
+
+    if (role === 'farmer') {
+      userRecord.farm_name = farmName?.trim() || `${fullName.trim()}'s Krishi Farm`;
+      userRecord.farm_description = 'Registered certified agricultural grower on Kisan Vyapar Portal';
+      userRecord.crops_grown = cropsGrown || ['Wheat', 'Paddy', 'Soybean'];
+      userRecord.is_verified = true;
+    }
+
+    // Insert into Supabase
+    const { data: newUser, error: insertError } = await supabase
+      .from('app_users')
+      .insert(userRecord)
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error('[KVP Register] Supabase insert error:', insertError);
+      return NextResponse.json(
+        { error: 'Registration failed. Database error: ' + insertError.message },
+        { status: 500 }
+      );
+    }
+
+    console.log(`✅ [KVP Register] ${role} '${fullName}' (ID: ${newUser.id}) saved to Supabase.`);
 
     return NextResponse.json({
       success: true,

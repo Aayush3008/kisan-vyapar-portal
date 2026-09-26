@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { MOCK_CROPS } from '@/lib/mock-data';
 import { CropListing } from '@/types';
 
@@ -187,23 +187,35 @@ export function CropProvider({ children }: { children: React.ReactNode }) {
   const [feedbacks, setFeedbacks] = useState<CropFeedback[]>(INITIAL_FEEDBACK);
   const [farmerOrders, setFarmerOrders] = useState<FarmerIncomingOrder[]>(INITIAL_ORDERS);
 
-  // Load custom persisted crops, feedbacks, and orders from localStorage on mount
-  useEffect(() => {
+  // ─── Fetch custom crops from Supabase on mount ───────────────
+  const fetchSupabaseCrops = useCallback(async () => {
     try {
-      const storedCrops = localStorage.getItem('kvp_custom_crops');
-      if (storedCrops) {
-        const parsed = JSON.parse(storedCrops);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const customIds = new Set(parsed.map((c: any) => c.id));
-          const baseRemaining = MOCK_CROPS.filter((c: any) => !customIds.has(c.id)).map((c: any, i: number) => ({
-            ...c,
-            discount_percentage: c.discount_percentage || (i % 2 === 0 ? 10 : 5),
-            discount_price_per_unit: c.discount_price_per_unit || (c.price_per_unit * (1 - (i % 2 === 0 ? 0.10 : 0.05))),
-          }));
-          setCrops([...parsed, ...baseRemaining]);
-        }
+      const res = await fetch('/api/crops');
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.crops && Array.isArray(data.crops) && data.crops.length > 0) {
+        setCrops((prev) => {
+          // Merge: Supabase custom crops + base MOCK_CROPS (avoiding duplicates)
+          const supabaseIds = new Set(data.crops.map((c: any) => c.id));
+          const baseCrops = prev.filter((c: any) => !supabaseIds.has(c.id));
+          // Add _is_custom flag to supabase crops for identification
+          const supabaseCrops = data.crops.map((c: any) => ({ ...c, _is_custom: true }));
+          return [...supabaseCrops, ...baseCrops];
+        });
+        console.log(`✅ Loaded ${data.crops.length} custom crops from Supabase`);
       }
+    } catch (e) {
+      console.warn('Could not fetch crops from Supabase, using local data:', e);
+    }
+  }, []);
 
+  // Load custom persisted crops from Supabase + localStorage feedbacks/orders on mount
+  useEffect(() => {
+    // Fetch crops from Supabase (shared across all devices)
+    fetchSupabaseCrops();
+
+    // Load feedbacks and orders from localStorage (these are still per-device for now)
+    try {
       const storedFeedbacks = localStorage.getItem('kvp_feedbacks');
       if (storedFeedbacks) {
         const parsedF = JSON.parse(storedFeedbacks);
@@ -222,18 +234,9 @@ export function CropProvider({ children }: { children: React.ReactNode }) {
     } catch (e) {
       console.error('Error loading data from storage:', e);
     }
-  }, []);
+  }, [fetchSupabaseCrops]);
 
-  const saveCustomCrops = (updatedList: any[]) => {
-    try {
-      const baseIds = new Set(MOCK_CROPS.map((c) => c.id));
-      const customOnly = updatedList.filter((c) => !baseIds.has(c.id) || c._is_custom);
-      localStorage.setItem('kvp_custom_crops', JSON.stringify(customOnly));
-    } catch (e) {
-      console.error('Error saving custom crops to storage:', e);
-    }
-  };
-
+  // ─── Add crop → save to Supabase ────────────────────────────
   const addCrop = (cropData: any) => {
     const slug = cropData.title
       .toLowerCase()
@@ -287,11 +290,25 @@ export function CropProvider({ children }: { children: React.ReactNode }) {
       _is_custom: true,
     };
 
-    setCrops((prev) => {
-      const updated = [newCrop, ...prev];
-      saveCustomCrops(updated);
-      return updated;
-    });
+    // Optimistically add to local state
+    setCrops((prev) => [newCrop, ...prev]);
+
+    // Save to Supabase in background (so it's visible on all devices)
+    fetch('/api/crops', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(cropData),
+    })
+      .then((res) => {
+        if (res.ok) {
+          console.log(`✅ Crop "${cropData.title}" saved to Supabase (visible on all devices)`);
+        } else {
+          console.warn('Failed to save crop to Supabase, it will only be visible locally');
+        }
+      })
+      .catch((err) => {
+        console.warn('Failed to save crop to Supabase:', err);
+      });
 
     return newCrop;
   };
@@ -311,17 +328,23 @@ export function CropProvider({ children }: { children: React.ReactNode }) {
         }
         return c;
       });
-      saveCustomCrops(updated);
       return updated;
     });
+
+    // Update in Supabase in background
+    fetch(`/api/crops/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    }).catch((err) => console.warn('Failed to update crop in Supabase:', err));
   };
 
   const deleteCrop = (id: string) => {
-    setCrops((prev) => {
-      const updated = prev.filter((c) => c.id !== id);
-      saveCustomCrops(updated);
-      return updated;
-    });
+    setCrops((prev) => prev.filter((c) => c.id !== id));
+
+    // Delete from Supabase in background
+    fetch(`/api/crops/${id}`, { method: 'DELETE' })
+      .catch((err) => console.warn('Failed to delete crop from Supabase:', err));
   };
 
   const getCropBySlug = (slug: string) => {

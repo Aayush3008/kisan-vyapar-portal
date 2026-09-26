@@ -100,24 +100,47 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
             localStorage.setItem('kvp_user_location', JSON.stringify(resolvedLocation));
             resolve(resolvedLocation);
           },
-          (err) => {
-            console.warn('Geolocation blocked or timed out, using Meerut, UP:', err.message);
+          async (err) => {
+            console.warn('Geolocation blocked or timed out:', err.message);
+            // Try IP-based geolocation as fallback
+            try {
+              const ipRes = await fetch('https://ipapi.co/json/', { signal: AbortSignal.timeout(5000) });
+              if (ipRes.ok) {
+                const ipData = await ipRes.json();
+                if (ipData.city && ipData.region) {
+                  const ipLocation: UserLocation = {
+                    district: ipData.city,
+                    state: ipData.region,
+                    latitude: ipData.latitude,
+                    longitude: ipData.longitude,
+                    detected: true,
+                  };
+                  setUserLocationState(ipLocation);
+                  localStorage.setItem('kvp_user_location', JSON.stringify(ipLocation));
+                  resolve(ipLocation);
+                  return;
+                }
+              }
+            } catch (ipErr) {
+              console.warn('IP geolocation also failed:', ipErr);
+            }
+            // Final fallback: Meerut
             const fallbackLoc: UserLocation = {
               district: 'Meerut',
               state: 'Uttar Pradesh',
-              detected: true,
+              detected: false,
             };
             setUserLocationState(fallbackLoc);
             localStorage.setItem('kvp_user_location', JSON.stringify(fallbackLoc));
             resolve(fallbackLoc);
           },
-          { timeout: 7000, enableHighAccuracy: true }
+          { timeout: 15000, enableHighAccuracy: true }
         );
       } else {
         const fallbackLoc: UserLocation = {
           district: 'Meerut',
           state: 'Uttar Pradesh',
-          detected: true,
+          detected: false,
         };
         setUserLocationState(fallbackLoc);
         resolve(fallbackLoc);

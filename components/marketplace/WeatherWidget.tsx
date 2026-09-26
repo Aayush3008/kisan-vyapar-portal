@@ -125,54 +125,77 @@ export function WeatherWidget({ initialDistrict = 'Meerut, Uttar Pradesh' }: Wea
   const [activeKey, setActiveKey] = useState<string>('meerut');
   const [customSearch, setCustomSearch] = useState('');
   const [isLocating, setIsLocating] = useState(false);
+  // Dynamic location data for GPS-detected locations that don't match predefined zones
+  const [dynamicAgronomy, setDynamicAgronomy] = useState<typeof REGIONAL_AGRONOMY_DATA[string] | null>(null);
+
+  // Helper: find best matching zone for a location string, or return null
+  const findMatchingZone = (districtName: string): string | null => {
+    const dist = districtName.toLowerCase();
+    if (dist.includes('meerut') || dist.includes('noida') || dist.includes('ghaziabad')) return 'meerut';
+    if (dist.includes('karnal') || dist.includes('punjab') || dist.includes('haryana') || dist.includes('chandigarh') || dist.includes('ludhiana') || dist.includes('amritsar')) return 'karnal';
+    if (dist.includes('sehore') || dist.includes('bhopal') || dist.includes('madhya') || dist.includes('indore') || dist.includes('jabalpur')) return 'sehore';
+    if (dist.includes('nashik')) return 'nashik';
+    if (dist.includes('guntur') || dist.includes('andhra') || dist.includes('vijayawada') || dist.includes('hyderabad') || dist.includes('telangana')) return 'guntur';
+    if (dist.includes('pune') || dist.includes('maharashtra') || dist.includes('mumbai') || dist.includes('nagpur') || dist.includes('kolhapur')) return 'pune';
+    // State-level fallback
+    if (dist.includes('uttar pradesh') || dist.includes('delhi') || dist.includes('uttarakhand')) return 'meerut';
+    if (dist.includes('rajasthan') || dist.includes('gujarat')) return 'sehore';
+    if (dist.includes('bihar') || dist.includes('jharkhand') || dist.includes('west bengal')) return 'karnal';
+    if (dist.includes('tamil') || dist.includes('karnataka') || dist.includes('kerala')) return 'pune';
+    return null;
+  };
 
   // Sync with userLocation from role context
   useEffect(() => {
     if (userLocation?.district) {
-      const dist = userLocation.district.toLowerCase();
-      if (dist.includes('meerut') || dist.includes('noida') || dist.includes('ghaziabad') || dist.includes('uttar')) {
-        setActiveKey('meerut');
-      } else if (dist.includes('karnal') || dist.includes('punjab') || dist.includes('haryana')) {
-        setActiveKey('karnal');
-      } else if (dist.includes('sehore') || dist.includes('bhopal') || dist.includes('madhya')) {
-        setActiveKey('sehore');
-      } else if (dist.includes('nashik')) {
-        setActiveKey('nashik');
-      } else if (dist.includes('guntur') || dist.includes('andhra')) {
-        setActiveKey('guntur');
-      } else if (dist.includes('pune') || dist.includes('maharashtra')) {
-        setActiveKey('pune');
+      const match = findMatchingZone(userLocation.district) || findMatchingZone(userLocation.state || '');
+      if (match) {
+        setActiveKey(match);
+        setDynamicAgronomy(null); // using predefined zone
+      } else {
+        // Create dynamic entry from nearest zone's climate data but with real location name
+        const baseZone = REGIONAL_AGRONOMY_DATA['meerut']; // fallback base
+        setDynamicAgronomy({
+          ...baseZone,
+          districtName: `${userLocation.district}, ${userLocation.state || 'India'}`,
+          seasonalAdvisory: `GPS-detected location. Showing closest agro-climatic zone data for ${userLocation.district}. ${baseZone.seasonalAdvisory}`,
+        });
+        setActiveKey('_dynamic');
       }
     }
   }, [userLocation]);
 
-  const currentAgronomy = REGIONAL_AGRONOMY_DATA[activeKey] || REGIONAL_AGRONOMY_DATA['meerut'];
+  const currentAgronomy = activeKey === '_dynamic' && dynamicAgronomy
+    ? dynamicAgronomy
+    : (REGIONAL_AGRONOMY_DATA[activeKey] || REGIONAL_AGRONOMY_DATA['meerut']);
 
   // Handle device location detection with auto reverse-geocoding
   const handleDetectLocation = async () => {
     setIsLocating(true);
     try {
       const loc = await detectLocation();
-      const dist = loc.district.toLowerCase();
-      if (dist.includes('meerut') || dist.includes('uttar') || dist.includes('noida') || dist.includes('ghaziabad')) {
-        setActiveKey('meerut');
-      } else if (dist.includes('karnal') || dist.includes('haryana') || dist.includes('punjab')) {
-        setActiveKey('karnal');
-      } else if (dist.includes('sehore') || dist.includes('madhya')) {
-        setActiveKey('sehore');
-      } else if (dist.includes('nashik')) {
-        setActiveKey('nashik');
-      } else if (dist.includes('guntur') || dist.includes('andhra')) {
-        setActiveKey('guntur');
-      } else if (dist.includes('pune') || dist.includes('maharashtra')) {
-        setActiveKey('pune');
+      const match = findMatchingZone(loc.district) || findMatchingZone(loc.state || '');
+
+      if (match) {
+        setActiveKey(match);
+        setDynamicAgronomy(null);
       } else {
-        setActiveKey('meerut');
+        // GPS detected a location we don't have predefined data for.
+        // Show the real location name with best-guess climate data.
+        const nearestBase = REGIONAL_AGRONOMY_DATA['meerut'];
+        setDynamicAgronomy({
+          ...nearestBase,
+          districtName: `${loc.district}, ${loc.state || 'India'}`,
+          seasonalAdvisory: `GPS-detected location: ${loc.district}. Displaying closest available agro-climatic data. ${nearestBase.seasonalAdvisory}`,
+        });
+        setActiveKey('_dynamic');
       }
-      toast(`GPS location detected: ${loc.district}, ${loc.state}! Loaded live soil & climate analytics.`, 'success');
+
+      toast(`📍 GPS location detected: ${loc.district}, ${loc.state}! Loaded live soil & climate analytics.`, 'success');
     } catch {
       setActiveKey('meerut');
-      toast('Using your home district: Meerut, Uttar Pradesh.', 'info');
+      setDynamicAgronomy(null);
+      toast('Could not detect GPS. Using default: Meerut, Uttar Pradesh.', 'info');
     } finally {
       setIsLocating(false);
     }
@@ -236,7 +259,7 @@ export function WeatherWidget({ initialDistrict = 'Meerut, Uttar Pradesh' }: Wea
           className="inline-flex items-center space-x-2 px-4 py-2 text-xs font-bold text-white bg-[#2D7A46] hover:bg-[#236338] rounded-xl transition-all shadow-sm active:scale-95 cursor-pointer"
         >
           <Compass className="w-4 h-4 animate-spin-slow" />
-          <span>{isLocating ? 'Detecting Real GPS (Meerut)...' : 'Auto-Detect My GPS Location'}</span>
+          <span>{isLocating ? 'Detecting Your GPS Location...' : 'Auto-Detect My GPS Location'}</span>
         </button>
       </div>
 

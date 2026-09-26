@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { generateOTP } from '@/lib/local-db';
+import { getSupabaseAdmin } from '@/lib/supabase/db';
 
 export async function POST(request: Request) {
   try {
@@ -22,10 +22,34 @@ export async function POST(request: Request) {
       );
     }
 
-    // Generate OTP
-    const otp = generateOTP(normalizedPhone);
+    const supabase = getSupabaseAdmin();
 
-    console.log(`📱 [KVP OTP] Sent OTP ${otp} to phone ${normalizedPhone}`);
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString(); // 5 minutes
+
+    // Upsert OTP into Supabase (replaces any existing OTP for this phone)
+    const { error: upsertError } = await supabase
+      .from('app_otps')
+      .upsert(
+        {
+          phone: normalizedPhone,
+          otp,
+          expires_at: expiresAt,
+          created_at: new Date().toISOString(),
+        },
+        { onConflict: 'phone' }
+      );
+
+    if (upsertError) {
+      console.error('[KVP OTP Send] Supabase upsert error:', upsertError);
+      return NextResponse.json(
+        { error: 'Failed to generate OTP. Database error: ' + upsertError.message },
+        { status: 500 }
+      );
+    }
+
+    console.log(`📱 [KVP OTP] Sent OTP ${otp} to phone ${normalizedPhone} (stored in Supabase)`);
 
     // In a production app, you'd send this via SMS (Twilio, MSG91, etc.)
     // For now, we return it in the response so the UI can show it

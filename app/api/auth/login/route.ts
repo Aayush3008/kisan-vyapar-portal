@@ -1,5 +1,13 @@
 import { NextResponse } from 'next/server';
-import { findUser, verifyPassword } from '@/lib/local-db';
+import { getSupabaseAdmin } from '@/lib/supabase/db';
+import crypto from 'crypto';
+
+function verifyPassword(password: string, storedHash: string): boolean {
+  const [salt, hash] = storedHash.split(':');
+  if (!salt || !hash) return false;
+  const candidate = crypto.createHash('sha256').update(salt + password).digest('hex');
+  return candidate === hash;
+}
 
 export async function POST(request: Request) {
   try {
@@ -13,10 +21,32 @@ export async function POST(request: Request) {
       );
     }
 
+    const supabase = getSupabaseAdmin();
     const trimmedIdentifier = identifier.trim();
+    const cleanPhone = trimmedIdentifier.replace(/\D/g, '');
 
-    // Find user in local database
-    const userProfile = findUser(trimmedIdentifier);
+    // Try to find user by phone or email
+    let userProfile = null;
+
+    // First try by phone
+    if (cleanPhone.length >= 10) {
+      const { data } = await supabase
+        .from('app_users')
+        .select('*')
+        .eq('phone', cleanPhone)
+        .maybeSingle();
+      userProfile = data;
+    }
+
+    // If not found, try by email
+    if (!userProfile) {
+      const { data } = await supabase
+        .from('app_users')
+        .select('*')
+        .eq('email', trimmedIdentifier.toLowerCase())
+        .maybeSingle();
+      userProfile = data;
+    }
 
     if (!userProfile) {
       return NextResponse.json(
@@ -47,7 +77,7 @@ export async function POST(request: Request) {
       };
     }
 
-    console.log(`✅ [KVP Login] Authenticated user ${userProfile.full_name} (${userProfile.role})`);
+    console.log(`✅ [KVP Login] Authenticated user ${userProfile.full_name} (${userProfile.role}) from Supabase`);
 
     return NextResponse.json({
       success: true,
