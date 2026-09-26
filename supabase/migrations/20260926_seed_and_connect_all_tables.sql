@@ -13,31 +13,77 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ─── STEP 1: RELAX AUTH CONSTRAINTS & DISABLE RLS ─────────────────────────────
 
--- Remove auth.users FK so profiles can be created with phone+password auth
+-- ─── STEP 1: RELAX AUTH CONSTRAINTS & CONFIGURE ROW LEVEL SECURITY (RLS) ─────
+
+-- Remove auth.users FK so profiles can be created with custom phone+password auth
 ALTER TABLE IF EXISTS profiles DROP CONSTRAINT IF EXISTS profiles_id_fkey;
 
--- Ensure RLS doesn't block queries from the app
-ALTER TABLE IF EXISTS profiles DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS farmer_profiles DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS categories DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS crop_listings DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS crop_images DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS addresses DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS cart_items DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS orders DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS order_items DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS order_timeline DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS reviews DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS resources DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS community_posts DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS community_replies DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS content_reports DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS coupons DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS site_settings DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS audit_logs DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS app_users DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS app_crop_listings DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS app_otps DISABLE ROW LEVEL SECURITY;
+-- 1. Enable RLS on ALL tables to ensure full security
+ALTER TABLE IF EXISTS profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS farmer_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS categories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS crop_listings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS crop_images ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS addresses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS cart_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS order_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS order_timeline ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS reviews ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS resources ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS community_posts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS community_replies ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS content_reports ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS coupons ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS site_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS audit_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS app_users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS app_crop_listings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS app_otps ENABLE ROW LEVEL SECURITY;
+
+-- 2. Drop any conflicting legacy policies first
+DROP POLICY IF EXISTS "Public read categories" ON categories;
+DROP POLICY IF EXISTS "Public read resources" ON resources;
+DROP POLICY IF EXISTS "Public read crop listings" ON crop_listings;
+DROP POLICY IF EXISTS "Public read crop images" ON crop_images;
+DROP POLICY IF EXISTS "Public read app crop listings" ON app_crop_listings;
+DROP POLICY IF EXISTS "Public read site settings" ON site_settings;
+DROP POLICY IF EXISTS "Public read active coupons" ON coupons;
+DROP POLICY IF EXISTS "Public read reviews" ON reviews;
+DROP POLICY IF EXISTS "Public read community posts" ON community_posts;
+DROP POLICY IF EXISTS "Public read community replies" ON community_replies;
+DROP POLICY IF EXISTS "Public read profiles" ON profiles;
+DROP POLICY IF EXISTS "Public read farmer profiles" ON farmer_profiles;
+
+-- 3. Public Read-Only Policies for Catalog & Community (Anon Key can only VIEW, never edit/delete)
+CREATE POLICY "Public read categories" ON categories FOR SELECT USING (true);
+CREATE POLICY "Public read resources" ON resources FOR SELECT USING (is_published = true);
+CREATE POLICY "Public read crop listings" ON crop_listings FOR SELECT USING (status = 'active');
+CREATE POLICY "Public read crop images" ON crop_images FOR SELECT USING (true);
+CREATE POLICY "Public read app crop listings" ON app_crop_listings FOR SELECT USING (status = 'active');
+CREATE POLICY "Public read site settings" ON site_settings FOR SELECT USING (true);
+CREATE POLICY "Public read active coupons" ON coupons FOR SELECT USING (is_active = true);
+CREATE POLICY "Public read reviews" ON reviews FOR SELECT USING (true);
+CREATE POLICY "Public read community posts" ON community_posts FOR SELECT USING (status = 'active');
+CREATE POLICY "Public read community replies" ON community_replies FOR SELECT USING (true);
+CREATE POLICY "Public read profiles" ON profiles FOR SELECT USING (true);
+CREATE POLICY "Public read farmer profiles" ON farmer_profiles FOR SELECT USING (true);
+
+-- 4. SENSITIVE TABLES ARE 100% LOCKED DOWN:
+-- - app_users
+-- - app_otps
+-- - orders
+-- - order_items
+-- - order_timeline
+-- - addresses
+-- - cart_items
+-- - audit_logs
+-- - content_reports
+--
+-- Notice: NO SELECT/INSERT/UPDATE/DELETE policies are granted to the public/anon role for these tables.
+-- The Next.js backend uses the service_role key, which automatically bypasses RLS securely on the server.
+-- This guarantees NO unauthorized user can read passwords, phone numbers, OTPs, or customer orders!
+
 
 
 -- ─── STEP 2: SITE SETTINGS ───────────────────────────────────────────────────
