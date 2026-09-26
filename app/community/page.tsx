@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Users, 
   MessageSquare, 
@@ -14,9 +14,11 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toast';
+import { useRole } from '@/context/RoleContext';
 
 export default function CommunityPage() {
   const { toast } = useToast();
+  const { currentUser } = useRole();
   const [posts, setPosts] = useState(MOCK_COMMUNITY_POSTS);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTopic, setSelectedTopic] = useState('all');
@@ -25,33 +27,67 @@ export default function CommunityPage() {
   const [newBody, setNewBody] = useState('');
   const [newTopic, setNewTopic] = useState('Mandi Prices & Trends');
 
+  // Load from Supabase on mount
+  useEffect(() => {
+    fetch('/api/community')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.posts && Array.isArray(data.posts) && data.posts.length > 0) {
+          setPosts(data.posts);
+        }
+      })
+      .catch((err) => console.warn('Could not load community posts from Supabase:', err));
+  }, []);
+
   const handleUpvote = (id: string) => {
     setPosts((prev) =>
       prev.map((p) => (p.id === id ? { ...p, upvotes: p.upvotes + 1 } : p))
     );
+    fetch(`/api/community/${id}/upvote`, { method: 'POST' }).catch((err) =>
+      console.warn('Upvote failed in db:', err)
+    );
   };
 
-  const handleCreatePost = () => {
+  const handleCreatePost = async () => {
     if (!newTitle.trim() || !newBody.trim()) {
       toast('Please enter title and content for your question.', 'error');
       return;
     }
 
-    const newPost = {
-      id: `post-${Date.now()}`,
-      author_id: 'current-user',
-      author_name: 'Harpreet Gill',
-      author_district: 'Patiala, Punjab',
+    const postPayload = {
+      title: newTitle.trim(),
+      body: newBody.trim(),
       topic: newTopic,
-      title: newTitle,
-      body: newBody,
-      upvotes: 1,
-      reply_count: 0,
-      status: 'active' as const,
-      created_at: 'Just now',
+      author_id: currentUser?.id,
+      author_name: currentUser?.full_name || 'Verified Kisan Member',
+      author_district: currentUser?.district
+        ? `${currentUser.district}, ${currentUser.state || 'UP'}`
+        : 'Patiala, Punjab',
     };
 
-    setPosts([newPost, ...posts]);
+    try {
+      const res = await fetch('/api/community', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(postPayload),
+      });
+      const data = await res.json();
+      if (data.post) {
+        setPosts((prev) => [data.post, ...prev]);
+      }
+    } catch {
+      // Local optimistic fallback
+      const localPost = {
+        id: `post-${Date.now()}`,
+        ...postPayload,
+        upvotes: 1,
+        reply_count: 0,
+        status: 'active' as const,
+        created_at: 'Just now',
+      };
+      setPosts((prev) => [localPost as any, ...prev]);
+    }
+
     setIsModalOpen(false);
     setNewTitle('');
     setNewBody('');

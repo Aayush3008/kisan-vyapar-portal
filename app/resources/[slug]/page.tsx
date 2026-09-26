@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { 
@@ -18,7 +18,19 @@ import { MOCK_RESOURCES } from '@/lib/mock-data';
 import { Button } from '@/components/ui/Button';
 
 export default function ResourceDetailPage({ params }: { params: { slug: string } }) {
-  const resource = MOCK_RESOURCES.find((r) => r.slug === params.slug) || MOCK_RESOURCES[0];
+  const initialResource = MOCK_RESOURCES.find((r) => r.slug === params.slug) || MOCK_RESOURCES[0];
+  const [resource, setResource] = useState(initialResource);
+
+  useEffect(() => {
+    fetch(`/api/resources/${params.slug}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.resource) {
+          setResource(data.resource);
+        }
+      })
+      .catch((err) => console.warn('Could not fetch resource from Supabase:', err));
+  }, [params.slug]);
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">

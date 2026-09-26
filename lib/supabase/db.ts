@@ -15,8 +15,7 @@ export function isSupabaseConfigured(): boolean {
     !url.includes('placeholder') &&
     !key.includes('your-') &&
     !key.includes('placeholder') &&
-    url.startsWith('https://') &&
-    url.endsWith('.supabase.co')
+    url.startsWith('http')
   );
 }
 
@@ -35,7 +34,10 @@ export function getSupabaseAdmin() {
     );
   }
 
-  return createClient(url, key, {
+  const cleanUrl = url.trim().replace(/\/+$/, '');
+  const cleanKey = key.trim();
+
+  return createClient(cleanUrl, cleanKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 }

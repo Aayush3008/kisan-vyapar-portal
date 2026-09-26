@@ -93,7 +93,36 @@ export async function POST(request: Request) {
       );
     }
 
-    console.log(`✅ [KVP Register] ${role} '${fullName}' (ID: ${newUser.id}) saved to Supabase.`);
+    console.log(`✅ [KVP Register] ${role} '${fullName}' (ID: ${newUser.id}) saved to app_users.`);
+
+    // Dual-sync to profiles & farmer_profiles if table exists
+    try {
+      await supabase.from('profiles').upsert({
+        id: newUser.id,
+        email: newUser.email,
+        full_name: newUser.full_name,
+        phone: newUser.phone,
+        role: newUser.role,
+        avatar_url: newUser.avatar_url,
+        district: newUser.district,
+        state: newUser.state,
+        pincode: newUser.pincode,
+        created_at: newUser.created_at,
+      }, { onConflict: 'id' });
+
+      if (role === 'farmer') {
+        await supabase.from('farmer_profiles').upsert({
+          user_id: newUser.id,
+          farm_name: userRecord.farm_name,
+          farm_description: userRecord.farm_description,
+          crops_grown: userRecord.crops_grown,
+          is_verified: true,
+        }, { onConflict: 'user_id' });
+      }
+      console.log(`✅ [KVP Register] User synced to profiles table.`);
+    } catch (profileErr) {
+      console.warn('[KVP Register] profiles sync skipped (may require migration):', profileErr);
+    }
 
     return NextResponse.json({
       success: true,

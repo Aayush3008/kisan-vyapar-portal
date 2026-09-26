@@ -1,15 +1,27 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { BookOpen, Search, ArrowRight, Sparkles } from 'lucide-react';
 import { MOCK_RESOURCES } from '@/lib/mock-data';
 
 export default function ResourcesPage() {
+  const [resources, setResources] = useState(MOCK_RESOURCES);
   const [activeCategory, setActiveCategory] = useState<string>('all');
   const [search, setSearch] = useState('');
 
-  const filtered = MOCK_RESOURCES.filter((res) => {
+  useEffect(() => {
+    fetch('/api/resources')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.resources && Array.isArray(data.resources) && data.resources.length > 0) {
+          setResources(data.resources);
+        }
+      })
+      .catch((err) => console.warn('Could not load resources from Supabase:', err));
+  }, []);
+
+  const filtered = resources.filter((res) => {
     if (activeCategory !== 'all' && res.topic !== activeCategory) return false;
     if (search.trim() !== '') {
       return (

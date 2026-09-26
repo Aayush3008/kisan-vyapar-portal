@@ -195,10 +195,8 @@ export function CropProvider({ children }: { children: React.ReactNode }) {
       const data = await res.json();
       if (data.crops && Array.isArray(data.crops) && data.crops.length > 0) {
         setCrops((prev) => {
-          // Merge: Supabase custom crops + base MOCK_CROPS (avoiding duplicates)
           const supabaseIds = new Set(data.crops.map((c: any) => c.id));
           const baseCrops = prev.filter((c: any) => !supabaseIds.has(c.id));
-          // Add _is_custom flag to supabase crops for identification
           const supabaseCrops = data.crops.map((c: any) => ({ ...c, _is_custom: true }));
           return [...supabaseCrops, ...baseCrops];
         });
@@ -209,18 +207,56 @@ export function CropProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Load custom persisted crops from Supabase + localStorage feedbacks/orders on mount
-  useEffect(() => {
-    // Fetch crops from Supabase (shared across all devices)
-    fetchSupabaseCrops();
+  // ─── Fetch real orders from Supabase on mount ─────────────────
+  const fetchSupabaseOrders = useCallback(async () => {
+    try {
+      const res = await fetch('/api/orders');
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.orders && Array.isArray(data.orders) && data.orders.length > 0) {
+        setFarmerOrders((prev) => {
+          const existingIds = new Set(data.orders.map((o: any) => o.orderNumber || o.id));
+          const remainingPrev = prev.filter((p) => !existingIds.has(p.orderNumber) && !existingIds.has(p.id));
+          return [...data.orders, ...remainingPrev];
+        });
+        console.log(`✅ Loaded ${data.orders.length} real orders from Supabase`);
+      }
+    } catch (e) {
+      console.warn('Could not fetch orders from Supabase:', e);
+    }
+  }, []);
 
-    // Load feedbacks and orders from localStorage (these are still per-device for now)
+  // ─── Fetch reviews from Supabase on mount ────────────────────
+  const fetchSupabaseReviews = useCallback(async () => {
+    try {
+      const res = await fetch('/api/reviews');
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.reviews && Array.isArray(data.reviews) && data.reviews.length > 0) {
+        setFeedbacks((prev) => {
+          const remoteIds = new Set(data.reviews.map((r: any) => r.id));
+          const localOnly = prev.filter((f) => !remoteIds.has(f.id));
+          return [...data.reviews, ...localOnly];
+        });
+      }
+    } catch (e) {
+      console.warn('Could not fetch reviews from Supabase:', e);
+    }
+  }, []);
+
+  // Load custom persisted crops, orders, and reviews from Supabase on mount
+  useEffect(() => {
+    fetchSupabaseCrops();
+    fetchSupabaseOrders();
+    fetchSupabaseReviews();
+
+    // Also load fallback localStorage if present
     try {
       const storedFeedbacks = localStorage.getItem('kvp_feedbacks');
       if (storedFeedbacks) {
         const parsedF = JSON.parse(storedFeedbacks);
         if (Array.isArray(parsedF) && parsedF.length > 0) {
-          setFeedbacks(parsedF);
+          setFeedbacks((prev) => [...prev, ...parsedF.filter((f: any) => !prev.some(p => p.id === f.id))]);
         }
       }
 
@@ -228,13 +264,13 @@ export function CropProvider({ children }: { children: React.ReactNode }) {
       if (storedOrders) {
         const parsedO = JSON.parse(storedOrders);
         if (Array.isArray(parsedO) && parsedO.length > 0) {
-          setFarmerOrders(parsedO);
+          setFarmerOrders((prev) => [...prev, ...parsedO.filter((o: any) => !prev.some(p => p.orderNumber === o.orderNumber))]);
         }
       }
     } catch (e) {
       console.error('Error loading data from storage:', e);
     }
-  }, [fetchSupabaseCrops]);
+  }, [fetchSupabaseCrops, fetchSupabaseOrders, fetchSupabaseReviews]);
 
   // ─── Add crop → save to Supabase ────────────────────────────
   const addCrop = (cropData: any) => {
@@ -367,6 +403,13 @@ export function CropProvider({ children }: { children: React.ReactNode }) {
       }
       return updated;
     });
+
+    // Save to Supabase in background
+    fetch('/api/reviews', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newFb),
+    }).catch((err) => console.warn('Failed to save review in Supabase:', err));
   };
 
   const getCropFeedbacks = (cropId: string) => {
@@ -388,6 +431,13 @@ export function CropProvider({ children }: { children: React.ReactNode }) {
       }
       return updated;
     });
+
+    // Save order directly into Supabase orders & order_items
+    fetch('/api/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newOrder),
+    }).catch((err) => console.warn('Failed to save order in Supabase:', err));
   };
 
   const updateFarmerOrderStatus = (
@@ -414,6 +464,17 @@ export function CropProvider({ children }: { children: React.ReactNode }) {
       }
       return updated;
     });
+
+    // Update in Supabase orders & timeline in background
+    fetch(`/api/orders/${orderId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        status,
+        vehicleNumber: dispatchInfo?.vehicleNo,
+        trackingPhone: dispatchInfo?.trackingPhone,
+      }),
+    }).catch((err) => console.warn('Failed to update order in Supabase:', err));
   };
 
   return (

@@ -75,11 +75,29 @@ export default function CheckoutPage() {
         paymentMethod,
         paymentStatus: paymentMethod === 'cod' ? 'pending' : 'paid',
         fulfillmentStatus: 'new',
-        deliveryType: deliveryType === 'delivery' ? 'Farmer Door Delivery' : 'Farm Pickup',
         deliveryAddress: `${formData.addressLine1}, ${formData.addressLine2 ? formData.addressLine2 + ', ' : ''}${formData.city}, ${formData.state} - ${formData.pincode}`,
         orderDate: 'Just Now',
       });
     });
+
+    // Sync address to Supabase addresses table for user
+    if (currentUser?.id) {
+      fetch('/api/addresses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: currentUser.id,
+          fullName: formData.fullName,
+          phone: formData.phone,
+          addressLine1: formData.addressLine1,
+          addressLine2: formData.addressLine2,
+          city: formData.city,
+          district: formData.district,
+          state: formData.state,
+          pincode: formData.pincode,
+        }),
+      }).catch(() => {});
+    }
 
     setTimeout(() => {
       clearCart();

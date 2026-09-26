@@ -25,9 +25,21 @@ function MarketplaceContent() {
   const initialState = searchParams.get('state') || 'all';
 
   const [searchQuery, setSearchQuery] = useState(initialQuery);
+  const [categories, setCategories] = useState(MOCK_CATEGORIES);
   const [selectedCategory, setSelectedCategory] = useState<string>(initialCat);
   const [selectedState, setSelectedState] = useState<string>(initialState);
   const [selectedGrade, setSelectedGrade] = useState<string>('all');
+
+  useEffect(() => {
+    fetch('/api/categories')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.categories && Array.isArray(data.categories) && data.categories.length > 0) {
+          setCategories(data.categories);
+        }
+      })
+      .catch((err) => console.warn('Could not load categories:', err));
+  }, []);
   const [selectedUnit, setSelectedUnit] = useState<string>('all');
   const [maxPrice, setMaxPrice] = useState<number>(25000);
   const [verifiedOnly, setVerifiedOnly] = useState<boolean>(false);
@@ -225,7 +237,7 @@ function MarketplaceContent() {
               >
                 All Categories
               </button>
-              {MOCK_CATEGORIES.map((cat) => (
+              {categories.map((cat) => (
                 <button
                   key={cat.id}
                   onClick={() => setSelectedCategory(cat.id)}

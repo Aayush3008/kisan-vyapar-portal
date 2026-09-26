@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { 
   MessageSquare, 
@@ -42,30 +42,67 @@ export default function DiscussionDetailPage({ params }: { params: { id: string 
   ]);
   const [newReply, setNewReply] = useState('');
 
+  // Fetch replies from Supabase on mount
+  useEffect(() => {
+    fetch(`/api/community/${params.id}/replies`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.replies && Array.isArray(data.replies) && data.replies.length > 0) {
+          const mapped = data.replies.map((r: any) => ({
+            id: r.id,
+            author: r.author,
+            district: r.role || 'Verified Kisan',
+            text: r.body,
+            date: r.time,
+            isExpert: r.role?.includes('Agronomist'),
+          }));
+          setReplies(mapped);
+        }
+      })
+      .catch((err) => console.warn('Could not load replies from Supabase:', err));
+  }, [params.id]);
+
   const handleUpvote = () => {
     if (!hasUpvoted) {
       setUpvotes((v) => v + 1);
       setHasUpvoted(true);
+      fetch(`/api/community/${params.id}/upvote`, { method: 'POST' }).catch((err) =>
+        console.warn('Upvote failed in db:', err)
+      );
       toast('Upvoted discussion!', 'success');
     }
   };
 
-  const handlePostReply = (e: React.FormEvent) => {
+  const handlePostReply = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newReply.trim()) return;
 
+    const replyText = newReply.trim();
+    setNewReply('');
+
+    // Optimistic UI update
     setReplies((prev) => [
       ...prev,
       {
         id: `rep-${Date.now()}`,
         author: 'Verified Community Kisan',
         district: 'Current Location',
-        text: newReply.trim(),
+        text: replyText,
         date: 'Just now',
         isExpert: false
       }
     ]);
-    setNewReply('');
+
+    try {
+      await fetch(`/api/community/${params.id}/replies`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ body: replyText }),
+      });
+    } catch (err) {
+      console.warn('Failed to save reply to Supabase:', err);
+    }
+
     toast('Your answer was submitted to the thread!', 'success');
   };
 

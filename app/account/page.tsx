@@ -149,6 +149,18 @@ export default function BuyerAccountPage() {
     },
   ]);
 
+  React.useEffect(() => {
+    if (!currentUser?.id) return;
+    fetch(`/api/addresses?userId=${currentUser.id}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.addresses && Array.isArray(data.addresses) && data.addresses.length > 0) {
+          setAddresses(data.addresses);
+        }
+      })
+      .catch((err) => console.warn('Could not load addresses from Supabase:', err));
+  }, [currentUser]);
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
       {/* Account Header */}

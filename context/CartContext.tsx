@@ -119,17 +119,49 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const platformFee = items.length > 0 ? 49 : 0;
   
-  const discountAmount = appliedCoupon === 'KISAN10' ? subtotal * 0.1 : 0;
+  const [couponDiscount, setCouponDiscount] = useState<{ percent: number; fixed: number }>({ percent: 0, fixed: 0 });
+  
+  const discountAmount = couponDiscount.fixed > 0
+    ? couponDiscount.fixed
+    : couponDiscount.percent > 0
+    ? (subtotal * couponDiscount.percent) / 100
+    : appliedCoupon === 'KISAN10'
+    ? subtotal * 0.1
+    : 0;
   
   const grandTotal = Math.max(0, subtotal + deliveryFeeTotal + platformFee - discountAmount);
   
   const itemCount = items.reduce((acc, item) => acc + item.quantity, 0);
 
   const applyCoupon = (code: string) => {
-    if (code.trim().toUpperCase() === 'KISAN10') {
-      setAppliedCoupon('KISAN10');
+    const clean = code.trim().toUpperCase();
+    if (clean === 'KISAN10' || clean === 'KVPSPECIAL') {
+      setAppliedCoupon(clean);
+      setCouponDiscount({ percent: 10, fixed: 0 });
       return true;
     }
+    if (clean === 'FARMER50') {
+      setAppliedCoupon(clean);
+      setCouponDiscount({ percent: 0, fixed: 500 });
+      return true;
+    }
+    if (clean === 'HARVEST100') {
+      setAppliedCoupon(clean);
+      setCouponDiscount({ percent: 0, fixed: 1000 });
+      return true;
+    }
+
+    // Also check Supabase coupons in background
+    fetch(`/api/coupons?code=${clean}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.valid) {
+          setAppliedCoupon(data.code);
+          setCouponDiscount({ percent: data.discount_percent || 0, fixed: data.discount_fixed || 0 });
+        }
+      })
+      .catch(() => {});
+
     return false;
   };
 
