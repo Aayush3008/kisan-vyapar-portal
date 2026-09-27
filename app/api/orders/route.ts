@@ -1,5 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin, isSupabaseConfigured } from '@/lib/supabase/db';
+import { 
+  getAllOrders, 
+  getOrdersByBuyer, 
+  getOrdersByFarmer, 
+  saveOrder as saveLocalOrder,
+  getAllLocalCrops,
+  updateLocalCrop 
+} from '@/lib/local-db';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,10 +32,8 @@ export async function GET(request: Request) {
       if (orderNumber) {
         query = query.eq('order_number', orderNumber);
       } else if (farmerId) {
-        // Can filter by farmer_id
         query = query.eq('farmer_id', farmerId);
       } else if (buyerId) {
-        // Can filter by buyer_id
         query = query.eq('buyer_id', buyerId);
       }
 
@@ -63,7 +69,7 @@ export async function GET(request: Request) {
             totalAmount: Number(o.total_amount || 0),
             paymentMethod: o.payment_method || 'cod',
             paymentStatus: o.payment_status || 'pending',
-            fulfillmentStatus: o.fulfillment_status || 'pending',
+            fulfillmentStatus: o.fulfillment_status || 'new',
             deliveryType: o.delivery_type || 'Farmer Door Delivery',
             deliveryAddress: fullAddr || 'Farm Gate Pickup',
             orderDate: new Date(o.placed_at).toLocaleDateString('en-US', {
@@ -76,17 +82,40 @@ export async function GET(request: Request) {
           };
         });
 
-        return NextResponse.json({ success: true, orders });
+        return NextResponse.json({ success: true, orders, source: 'supabase' });
       }
     }
   } catch (err) {
     console.warn('[API Orders] Supabase read fallback:', err);
   }
 
-  return NextResponse.json({
-    success: true,
-    orders: [],
-  });
+  // Local fallback with strict scoping by buyerId / farmerId
+  try {
+    let localOrders = [];
+    if (orderNumber) {
+      const all = getAllOrders();
+      localOrders = all.filter((o) => o.orderNumber === orderNumber || o.id === orderNumber);
+    } else if (buyerId) {
+      localOrders = getOrdersByBuyer(buyerId);
+    } else if (farmerId) {
+      localOrders = getOrdersByFarmer(farmerId);
+    } else {
+      localOrders = getAllOrders();
+    }
+
+    return NextResponse.json({
+      success: true,
+      orders: localOrders,
+      source: 'local',
+    });
+  } catch (localErr) {
+    console.error('[API Orders] Local read error:', localErr);
+    return NextResponse.json({
+      success: true,
+      orders: [],
+      source: 'none',
+    });
+  }
 }
 
 export async function POST(request: Request) {
@@ -94,11 +123,14 @@ export async function POST(request: Request) {
     const body = await request.json();
     const {
       orderNumber,
+      buyerId,
       buyerName,
       buyerPhone,
+      buyerEmail,
       cropTitle,
       cropId,
       farmerId,
+      farmerName,
       variety,
       quantity = 1,
       unit = 'quintal',
@@ -115,99 +147,164 @@ export async function POST(request: Request) {
     } = body;
 
     const finalOrderNumber = orderNumber || `ORD-KVP-${Math.floor(10000 + Math.random() * 90000)}`;
+    const numQuantity = Number(quantity || 1);
 
+    // 1. Always save in local storage DB for instant access and user isolation
+    const savedLocalOrder = saveLocalOrder({
+      orderNumber: finalOrderNumber,
+      buyerId,
+      buyerName,
+      buyerPhone,
+      buyerEmail,
+      cropTitle,
+      cropId,
+      farmerId,
+      farmerName,
+      variety,
+      quantity: numQuantity,
+      unit,
+      pricePerUnit: Number(pricePerUnit),
+      discountPercent: Number(discountPercent),
+      discountAmount: Number(discountAmount),
+      totalAmount: Number(totalAmount),
+      paymentMethod,
+      paymentStatus,
+      fulfillmentStatus,
+      deliveryType,
+      deliveryAddress,
+      orderDate: 'Just Now',
+    });
+
+    // 2. Decrement crop stock in local db if cropId is known
+    if (cropId) {
+      try {
+        const localCrops = getAllLocalCrops();
+        const existingCrop = localCrops.find((c: any) => c.id === cropId);
+        if (existingCrop) {
+          const updatedStock = Math.max(0, (existingCrop.stock_quantity || 0) - numQuantity);
+          updateLocalCrop(cropId, {
+            stock_quantity: updatedStock,
+            status: updatedStock === 0 ? 'sold_out' : existingCrop.status,
+          });
+        }
+      } catch (e) {
+        console.warn('Could not update local crop stock:', e);
+      }
+    }
+
+    // 3. Dual-sync to Supabase if configured
     if (isSupabaseConfigured()) {
-      const supabase = getSupabaseAdmin();
+      try {
+        const supabase = getSupabaseAdmin();
 
-      // Resolve valid buyer profile ID
-      let resolvedBuyerId = body.buyerId;
-      if (!resolvedBuyerId || typeof resolvedBuyerId !== 'string' || resolvedBuyerId.length < 10) {
-        const { data: firstBuyer } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('role', 'buyer')
-          .limit(1)
-          .maybeSingle();
-        resolvedBuyerId = firstBuyer?.id || '33333333-0006-0000-0000-000000000006';
+        // Resolve valid buyer profile ID
+        let resolvedBuyerId = buyerId;
+        if (!resolvedBuyerId || typeof resolvedBuyerId !== 'string' || resolvedBuyerId.length < 10) {
+          const { data: firstBuyer } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('role', 'buyer')
+            .limit(1)
+            .maybeSingle();
+          resolvedBuyerId = firstBuyer?.id || '33333333-0006-0000-0000-000000000006';
+        }
+
+        // Resolve valid farmer profile ID
+        let resolvedFarmerId = farmerId;
+        if (!resolvedFarmerId || typeof resolvedFarmerId !== 'string' || resolvedFarmerId.length < 10) {
+          const { data: firstFarmer } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('role', 'farmer')
+            .limit(1)
+            .maybeSingle();
+          resolvedFarmerId = firstFarmer?.id || '33333333-0001-0000-0000-000000000001';
+        }
+
+        const addressData = shippingAddress || {
+          fullName: buyerName,
+          phone: buyerPhone,
+          address: deliveryAddress,
+        };
+
+        // Insert into orders
+        const { data: newOrder, error: orderError } = await supabase
+          .from('orders')
+          .insert({
+            order_number: finalOrderNumber,
+            buyer_id: resolvedBuyerId,
+            farmer_id: resolvedFarmerId,
+            subtotal: Number(totalAmount || pricePerUnit * numQuantity),
+            delivery_fee: deliveryType.includes('Pickup') ? 0 : 150,
+            platform_fee: 0,
+            discount_amount: Number(discountAmount || 0),
+            total_amount: Number(totalAmount || pricePerUnit * numQuantity),
+            payment_method: paymentMethod === 'cod' ? 'cod' : 'razorpay',
+            payment_status: paymentStatus === 'paid' ? 'paid' : 'pending',
+            fulfillment_status: fulfillmentStatus === 'new' ? 'pending' : (fulfillmentStatus || 'pending'),
+            shipping_address: addressData,
+            delivery_type: deliveryType,
+          })
+          .select()
+          .single();
+
+        if (!orderError && newOrder) {
+          // Insert into order_items
+          await supabase.from('order_items').insert({
+            order_id: newOrder.id,
+            listing_id: cropId,
+            crop_title: cropTitle || 'Fresh Harvest Lot',
+            variety: variety || 'Certified Standard',
+            unit: unit || 'quintal',
+            quantity: numQuantity,
+            unit_price: Number(pricePerUnit),
+            line_total: Number(totalAmount),
+          });
+
+          // Insert into order_timeline
+          await supabase.from('order_timeline').insert({
+            order_id: newOrder.id,
+            status: 'Order Placed',
+            note: `Order placed via ${paymentMethod.toUpperCase()} (${deliveryType}).`,
+          });
+
+          // Decrement stock in Supabase app_crop_listings
+          if (cropId) {
+            const { data: cropRow } = await supabase
+              .from('app_crop_listings')
+              .select('id, stock_quantity')
+              .eq('id', cropId)
+              .maybeSingle();
+
+            if (cropRow) {
+              const newStock = Math.max(0, (cropRow.stock_quantity || 0) - numQuantity);
+              await supabase
+                .from('app_crop_listings')
+                .update({
+                  stock_quantity: newStock,
+                  status: newStock === 0 ? 'sold_out' : 'active',
+                })
+                .eq('id', cropId);
+            }
+          }
+
+          return NextResponse.json({
+            success: true,
+            orderId: newOrder.id,
+            orderNumber: finalOrderNumber,
+            source: 'supabase',
+          });
+        }
+      } catch (sbErr) {
+        console.warn('[API Orders POST] Supabase insert warning:', sbErr);
       }
-
-      // Resolve valid farmer profile ID
-      let resolvedFarmerId = farmerId;
-      if (!resolvedFarmerId || typeof resolvedFarmerId !== 'string' || resolvedFarmerId.length < 10) {
-        const { data: firstFarmer } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('role', 'farmer')
-          .limit(1)
-          .maybeSingle();
-        resolvedFarmerId = firstFarmer?.id || '33333333-0001-0000-0000-000000000001';
-      }
-
-      const addressData = shippingAddress || {
-        fullName: buyerName,
-        phone: buyerPhone,
-        address: deliveryAddress,
-      };
-
-      // 1. Insert into orders
-      const { data: newOrder, error: orderError } = await supabase
-        .from('orders')
-        .insert({
-          order_number: finalOrderNumber,
-          buyer_id: resolvedBuyerId,
-          farmer_id: resolvedFarmerId,
-          subtotal: Number(totalAmount || pricePerUnit * quantity),
-          delivery_fee: deliveryType.includes('Pickup') ? 0 : 150,
-          platform_fee: 0,
-          discount_amount: Number(discountAmount || 0),
-          total_amount: Number(totalAmount || pricePerUnit * quantity),
-          payment_method: paymentMethod === 'cod' ? 'cod' : 'razorpay',
-          payment_status: paymentStatus === 'paid' ? 'paid' : 'pending',
-          fulfillment_status: fulfillmentStatus === 'new' ? 'pending' : (fulfillmentStatus || 'pending'),
-          shipping_address: addressData,
-          delivery_type: deliveryType,
-        })
-        .select()
-        .single();
-
-      if (orderError) {
-        console.error('[API Orders] Insert error:', orderError);
-        // Return success with local order so checkout doesn't fail
-        return NextResponse.json({
-          success: true,
-          orderNumber: finalOrderNumber,
-          warning: orderError.message,
-        });
-      }
-
-      // 2. Insert into order_items
-      await supabase.from('order_items').insert({
-        order_id: newOrder.id,
-        crop_title: cropTitle || 'Fresh Harvest Lot',
-        variety: variety || 'Certified Standard',
-        unit: unit || 'quintal',
-        quantity: Number(quantity),
-        unit_price: Number(pricePerUnit),
-        line_total: Number(totalAmount),
-      });
-
-      // 3. Insert into order_timeline
-      await supabase.from('order_timeline').insert({
-        order_id: newOrder.id,
-        status: 'Order Placed',
-        note: `Order placed via ${paymentMethod.toUpperCase()} (${deliveryType}).`,
-      });
-
-      return NextResponse.json({
-        success: true,
-        orderId: newOrder.id,
-        orderNumber: finalOrderNumber,
-      });
     }
 
     return NextResponse.json({
       success: true,
+      orderId: savedLocalOrder.id,
       orderNumber: finalOrderNumber,
+      source: 'local',
     });
   } catch (err: any) {
     console.error('[API Orders POST] Error:', err);

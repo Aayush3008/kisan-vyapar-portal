@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin, isSupabaseConfigured } from '@/lib/supabase/db';
+import { getAllOrders, updateOrder } from '@/lib/local-db';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,6 +31,14 @@ export async function GET(
     console.warn('[API Order by Number] Supabase error:', err);
   }
 
+  // Local fallback
+  const localOrders = getAllOrders();
+  const matched = localOrders.find((o) => o.orderNumber === orderNumber || o.id === orderNumber);
+
+  if (matched) {
+    return NextResponse.json({ success: true, order: matched });
+  }
+
   return NextResponse.json({
     success: true,
     order: {
@@ -52,38 +61,47 @@ export async function PUT(
     const body = await request.json();
     const { status, note, vehicleNumber, trackingPhone } = body;
 
+    // 1. Update in local storage
+    updateOrder(orderNumber, {
+      fulfillmentStatus: status,
+      transportVehicleNumber: vehicleNumber,
+      trackingPhone,
+    });
+
+    // 2. Dual-sync to Supabase if configured
     if (isSupabaseConfigured()) {
-      const supabase = getSupabaseAdmin();
+      try {
+        const supabase = getSupabaseAdmin();
 
-      // Find order
-      const { data: order } = await supabase
-        .from('orders')
-        .select('id, fulfillment_status')
-        .eq('order_number', orderNumber)
-        .maybeSingle();
-
-      if (order) {
-        // Update order status
-        const updateFields: Record<string, any> = {
-          fulfillment_status: status,
-        };
-        if (status === 'delivered') updateFields.delivered_at = new Date().toISOString();
-        if (status === 'dispatched') updateFields.dispatched_at = new Date().toISOString();
-        if (status === 'cancelled') updateFields.cancelled_at = new Date().toISOString();
-
-        await supabase
+        // Find order
+        const { data: order } = await supabase
           .from('orders')
-          .update(updateFields)
-          .eq('id', order.id);
+          .select('id, fulfillment_status')
+          .eq('order_number', orderNumber)
+          .maybeSingle();
 
-        // Append to order_timeline
-        await supabase.from('order_timeline').insert({
-          order_id: order.id,
-          status: status.charAt(0).toUpperCase() + status.slice(1),
-          note: note || `Status updated to ${status}${vehicleNumber ? ' • Vehicle: ' + vehicleNumber : ''}${trackingPhone ? ' • Driver: ' + trackingPhone : ''}`,
-        });
+        if (order) {
+          const updateFields: Record<string, any> = {
+            fulfillment_status: status,
+          };
+          if (status === 'delivered') updateFields.delivered_at = new Date().toISOString();
+          if (status === 'dispatched') updateFields.dispatched_at = new Date().toISOString();
+          if (status === 'cancelled') updateFields.cancelled_at = new Date().toISOString();
 
-        return NextResponse.json({ success: true, updatedStatus: status });
+          await supabase
+            .from('orders')
+            .update(updateFields)
+            .eq('id', order.id);
+
+          // Append to order_timeline
+          await supabase.from('order_timeline').insert({
+            order_id: order.id,
+            status: status.charAt(0).toUpperCase() + status.slice(1),
+            note: note || `Status updated to ${status}${vehicleNumber ? ' • Vehicle: ' + vehicleNumber : ''}${trackingPhone ? ' • Driver: ' + trackingPhone : ''}`,
+          });
+        }
+      } catch (sbErr) {
+        console.warn('[API Orders PUT] Supabase update warning:', sbErr);
       }
     }
 

@@ -19,11 +19,14 @@ export interface CropFeedback {
 export interface FarmerIncomingOrder {
   id: string;
   orderNumber: string;
+  buyerId?: string;
   buyerName: string;
   buyerPhone: string;
+  buyerEmail?: string;
   cropTitle: string;
   cropId?: string;
   farmerId?: string;
+  farmerName?: string;
   variety: string;
   quantity: number;
   unit: string;
@@ -114,6 +117,7 @@ const INITIAL_ORDERS: FarmerIncomingOrder[] = [
   {
     id: 'ord-1',
     orderNumber: 'ORD-KVP-10001',
+    buyerId: 'demo-buyer-priya',
     buyerName: 'Priya Sundaram (Spice Export Trade)',
     buyerPhone: '+91 98450 12890',
     cropTitle: 'Guntur Teja Chillies (Stemless)',
@@ -136,6 +140,7 @@ const INITIAL_ORDERS: FarmerIncomingOrder[] = [
   {
     id: 'ord-2',
     orderNumber: 'ORD-KVP-10002',
+    buyerId: 'demo-buyer-apex',
     buyerName: 'Apex Flour Mills Ltd.',
     buyerPhone: '+91 94250 88712',
     cropTitle: 'Certified Sharbati Wheat',
@@ -161,6 +166,7 @@ interface CropContextType {
   crops: any[];
   addCrop: (cropData: any) => any;
   updateCrop: (id: string, updates: Partial<any>) => void;
+  reduceCropStock: (cropId: string, quantityToDeduct: number) => void;
   deleteCrop: (id: string) => void;
   getCropBySlug: (slug: string) => any | undefined;
   // Feedback methods
@@ -252,6 +258,22 @@ export function CropProvider({ children }: { children: React.ReactNode }) {
 
     // Also load fallback localStorage if present
     try {
+      const storedCrops = localStorage.getItem('kvp_crops');
+      if (storedCrops) {
+        const parsedC = JSON.parse(storedCrops);
+        if (Array.isArray(parsedC) && parsedC.length > 0) {
+          setCrops((prev) => {
+            const storedMap = new Map(parsedC.map((c: any) => [c.id, c]));
+            const mergedBase = prev.map((p) => {
+              const stored = storedMap.get(p.id);
+              return stored ? { ...p, ...stored } : p;
+            });
+            const customOnly = parsedC.filter((c: any) => !prev.some((p) => p.id === c.id));
+            return [...customOnly, ...mergedBase];
+          });
+        }
+      }
+
       const storedFeedbacks = localStorage.getItem('kvp_feedbacks');
       if (storedFeedbacks) {
         const parsedF = JSON.parse(storedFeedbacks);
@@ -272,7 +294,7 @@ export function CropProvider({ children }: { children: React.ReactNode }) {
     }
   }, [fetchSupabaseCrops, fetchSupabaseOrders, fetchSupabaseReviews]);
 
-  // ─── Add crop → save to Supabase ────────────────────────────
+  // ─── Add crop → save to local and Supabase ───────────────────
   const addCrop = (cropData: any) => {
     const slug = cropData.title
       .toLowerCase()
@@ -325,10 +347,18 @@ export function CropProvider({ children }: { children: React.ReactNode }) {
       _is_custom: true,
     };
 
-    // Optimistically add to local state
-    setCrops((prev) => [newCrop, ...prev]);
+    // Optimistically add to local state and localStorage
+    setCrops((prev) => {
+      const updated = [newCrop, ...prev];
+      try {
+        localStorage.setItem('kvp_crops', JSON.stringify(updated));
+      } catch (e) {
+        console.warn('Failed to save new crop to storage:', e);
+      }
+      return updated;
+    });
 
-    // Save to Supabase in background (so it's visible on all devices)
+    // Save to API route
     fetch('/api/crops', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -336,13 +366,11 @@ export function CropProvider({ children }: { children: React.ReactNode }) {
     })
       .then((res) => {
         if (res.ok) {
-          console.log(`✅ Crop "${cropData.title}" saved to Supabase (visible on all devices)`);
-        } else {
-          console.warn('Failed to save crop to Supabase, it will only be visible locally');
+          console.log(`✅ Crop "${cropData.title}" saved successfully`);
         }
       })
       .catch((err) => {
-        console.warn('Failed to save crop to Supabase:', err);
+        console.warn('Failed to save crop via API:', err);
       });
 
     return newCrop;
@@ -363,23 +391,71 @@ export function CropProvider({ children }: { children: React.ReactNode }) {
         }
         return c;
       });
+      try {
+        localStorage.setItem('kvp_crops', JSON.stringify(updated));
+      } catch (e) {
+        console.warn('Failed to save updated crops:', e);
+      }
       return updated;
     });
 
-    // Update in Supabase in background
+    // Update in backend
     fetch(`/api/crops/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updates),
-    }).catch((err) => console.warn('Failed to update crop in Supabase:', err));
+    }).catch((err) => console.warn('Failed to update crop in backend:', err));
+  };
+
+  // Reduce crop stock after purchase
+  const reduceCropStock = (cropId: string, quantityToDeduct: number) => {
+    const qty = Number(quantityToDeduct || 0);
+    if (qty <= 0) return;
+
+    setCrops((prev) => {
+      const updated = prev.map((c) => {
+        if (c.id === cropId) {
+          const currentStock = Number(c.stock_quantity ?? 0);
+          const nextStock = Math.max(0, currentStock - qty);
+          const nextStatus = nextStock === 0 ? 'sold_out' : c.status;
+          return {
+            ...c,
+            stock_quantity: nextStock,
+            status: nextStatus,
+          };
+        }
+        return c;
+      });
+      try {
+        localStorage.setItem('kvp_crops', JSON.stringify(updated));
+      } catch (e) {
+        console.warn('Failed to save crop stock:', e);
+      }
+      return updated;
+    });
+
+    // Sync stock reduction to backend API
+    fetch(`/api/crops/${cropId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ decrementStock: qty }),
+    }).catch((err) => console.warn('Failed to sync stock reduction to API:', err));
   };
 
   const deleteCrop = (id: string) => {
-    setCrops((prev) => prev.filter((c) => c.id !== id));
+    setCrops((prev) => {
+      const filtered = prev.filter((c) => c.id !== id);
+      try {
+        localStorage.setItem('kvp_crops', JSON.stringify(filtered));
+      } catch (e) {
+        console.warn('Failed to save crops after delete:', e);
+      }
+      return filtered;
+    });
 
-    // Delete from Supabase in background
+    // Delete in backend
     fetch(`/api/crops/${id}`, { method: 'DELETE' })
-      .catch((err) => console.warn('Failed to delete crop from Supabase:', err));
+      .catch((err) => console.warn('Failed to delete crop in backend:', err));
   };
 
   const getCropBySlug = (slug: string) => {
@@ -482,6 +558,7 @@ export function CropProvider({ children }: { children: React.ReactNode }) {
         crops,
         addCrop,
         updateCrop,
+        reduceCropStock,
         deleteCrop,
         getCropBySlug,
         feedbacks,

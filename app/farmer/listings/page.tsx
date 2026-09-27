@@ -22,14 +22,30 @@ import { formatINR } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
 import { useCrops } from '@/context/CropContext';
+import { useRole } from '@/context/RoleContext';
 
 export default function FarmerListingsPage() {
   const { toast } = useToast();
+  const { currentUser } = useRole();
   const { crops, updateCrop, deleteCrop } = useCrops();
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [search, setSearch] = useState('');
 
-  const filteredCrops = crops.filter((c) => {
+  const farmerId = currentUser?.id;
+  const isDemoFarmer = !farmerId || currentUser?.full_name?.toLowerCase().includes('rameshwar') || currentUser?.id === 'farmer-1';
+
+  // Strict scoping: farmers only see and manage their own farm produce listings
+  const myCrops = crops.filter((c) => {
+    if (farmerId && c.farmer_id) {
+      return c.farmer_id === farmerId;
+    }
+    if (isDemoFarmer) {
+      return !c.farmer_id || c.farmer_id === 'farmer-1' || c.farmer_id === 'farmer-custom';
+    }
+    return false;
+  });
+
+  const filteredCrops = myCrops.filter((c) => {
     if (filterStatus === 'active' && c.stock_quantity === 0) return false;
     if (filterStatus === 'sold_out' && c.stock_quantity > 0) return false;
     if (search.trim() !== '') {
@@ -125,7 +141,29 @@ export default function FarmerListingsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-black/5">
-              {filteredCrops.map((crop) => (
+              {myCrops.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="p-12 text-center">
+                    <div className="w-14 h-14 mx-auto rounded-2xl bg-[#F3FAF4] flex items-center justify-center mb-3">
+                      <Package className="w-7 h-7 text-[#2D7A46]" />
+                    </div>
+                    <p className="font-serif text-base font-bold text-[#1E2A22]">No Farm Crop Listings Yet</p>
+                    <p className="text-xs text-[#617064] max-w-sm mx-auto mt-1 mb-4">
+                      You haven&apos;t listed any harvested produce yet. Publish your first harvest batch to start selling directly to registered buyers across India.
+                    </p>
+                    <Link href="/farmer/listings/new">
+                      <Button size="sm">List New Harvested Crop</Button>
+                    </Link>
+                  </td>
+                </tr>
+              ) : filteredCrops.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="p-8 text-center text-xs text-[#617064]">
+                    No crop listings match your current search or filter.
+                  </td>
+                </tr>
+              ) : (
+                filteredCrops.map((crop) => (
                 <tr key={crop.id} className="hover:bg-stone-50/80 transition-colors">
                   <td className="p-3">
                     <div className="flex items-center space-x-3">
@@ -238,7 +276,8 @@ export default function FarmerListingsPage() {
                     </div>
                   </td>
                 </tr>
-              ))}
+              ))
+              )}
             </tbody>
           </table>
         </div>

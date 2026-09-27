@@ -26,7 +26,7 @@ import { useToast } from '@/components/ui/Toast';
 export default function CheckoutPage() {
   const router = useRouter();
   const { items, subtotal, deliveryFeeTotal, platformFee, discountAmount, grandTotal, clearCart } = useCart();
-  const { addFarmerOrder } = useCrops();
+  const { addFarmerOrder, reduceCropStock } = useCrops();
   const { currentUser, userLocation } = useRole();
   const { toast } = useToast();
 
@@ -56,15 +56,18 @@ export default function CheckoutPage() {
     setIsProcessing(true);
     const orderNumber = `ORD-KVP-${Math.floor(10000 + Math.random() * 90000)}`;
 
-    // Save orders into Farmer's Workspace in real-time
+    // Save orders into Farmer's Workspace in real-time and deduct stock
     items.forEach((item) => {
       addFarmerOrder({
         orderNumber,
+        buyerId: currentUser?.id,
         buyerName: formData.fullName,
         buyerPhone: formData.phone,
+        buyerEmail: formData.email,
         cropTitle: item.crop.title,
         cropId: item.crop.id,
         farmerId: item.crop.farmer_id,
+        farmerName: item.crop.farmer_name,
         variety: item.crop.variety,
         quantity: item.quantity,
         unit: item.crop.unit,
@@ -75,9 +78,13 @@ export default function CheckoutPage() {
         paymentMethod,
         paymentStatus: paymentMethod === 'cod' ? 'pending' : 'paid',
         fulfillmentStatus: 'new',
+        deliveryType: deliveryType === 'delivery' ? 'Farmer Door Delivery' : 'Farm Pickup',
         deliveryAddress: `${formData.addressLine1}, ${formData.addressLine2 ? formData.addressLine2 + ', ' : ''}${formData.city}, ${formData.state} - ${formData.pincode}`,
         orderDate: 'Just Now',
       });
+
+      // Decrement available stock immediately
+      reduceCropStock(item.crop.id, item.quantity);
     });
 
     // Sync address to Supabase addresses table for user

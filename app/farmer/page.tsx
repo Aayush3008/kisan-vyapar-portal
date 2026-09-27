@@ -35,8 +35,32 @@ export default function FarmerDashboard() {
     ? `${currentUser.district}, ${currentUser.state}` 
     : `${userLocation?.district || 'Meerut'}, ${userLocation?.state || 'Uttar Pradesh'}`;
 
-  const pendingOrders = farmerOrders.filter((o) => o.fulfillmentStatus === 'new' || o.fulfillmentStatus === 'accepted');
-  const totalSalesRevenue = farmerOrders
+  const farmerId = currentUser?.id;
+  const isDemoFarmer = !farmerId || currentUser?.full_name?.toLowerCase().includes('rameshwar') || currentUser?.id === 'farmer-1';
+
+  // Scoped crops and orders strictly for this farmer
+  const myCrops = crops.filter((c) => {
+    if (farmerId && c.farmer_id) {
+      return c.farmer_id === farmerId;
+    }
+    if (isDemoFarmer) {
+      return !c.farmer_id || c.farmer_id === 'farmer-1' || c.farmer_id === 'farmer-custom';
+    }
+    return false;
+  });
+
+  const myFarmerOrders = farmerOrders.filter((o) => {
+    if (farmerId && o.farmerId) {
+      return o.farmerId === farmerId;
+    }
+    if (isDemoFarmer) {
+      return !o.farmerId || o.farmerId === 'farmer-1' || o.farmerId === 'farmer-custom';
+    }
+    return false;
+  });
+
+  const pendingOrders = myFarmerOrders.filter((o) => o.fulfillmentStatus === 'new' || o.fulfillmentStatus === 'accepted');
+  const totalSalesRevenue = myFarmerOrders
     .filter((o) => o.fulfillmentStatus !== 'cancelled')
     .reduce((acc, o) => acc + o.totalAmount, 0);
 
@@ -79,7 +103,7 @@ export default function FarmerDashboard() {
           <Link href="/farmer/orders">
             <Button variant="outline" size="sm" className="flex items-center space-x-1.5">
               <Package className="w-4 h-4 text-[#2D7A46]" />
-              <span>Orders Queue ({farmerOrders.length})</span>
+              <span>Orders Queue ({myFarmerOrders.length})</span>
             </Button>
           </Link>
           <Link href="/farmer/listings/new">
@@ -95,20 +119,20 @@ export default function FarmerDashboard() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="p-5 rounded-2xl border border-black/5 bg-white shadow-subtle">
           <div className="text-xs font-semibold text-[#617064]">Active Farm Crops</div>
-          <div className="text-3xl font-bold text-[#1E2A22] mt-2">{crops.length} Batches</div>
-          <div className="text-[11px] text-[#2D7A46] font-semibold mt-1">● Published in National Mandi</div>
+          <div className="text-3xl font-bold text-[#1E2A22] mt-2">{myCrops.length} Batches</div>
+          <div className="text-[11px] text-[#2D7A46] font-semibold mt-1">● Listed in Mandi Catalog</div>
         </div>
 
         <div className="p-5 rounded-2xl border border-black/5 bg-white shadow-subtle">
           <div className="text-xs font-semibold text-[#617064]">Total Farmer Sales</div>
-          <div className="text-3xl font-bold text-[#2D7A46] mt-2">{formatINR(totalSalesRevenue || 428500)}</div>
-          <div className="text-[11px] text-[#2D7A46] font-semibold mt-1">▲ 18.5% Direct-to-Buyer Margin</div>
+          <div className="text-3xl font-bold text-[#2D7A46] mt-2">{formatINR(totalSalesRevenue)}</div>
+          <div className="text-[11px] text-[#2D7A46] font-semibold mt-1">▲ Direct-to-Buyer Revenue</div>
         </div>
 
         <div className="p-5 rounded-2xl border border-black/5 bg-white shadow-subtle">
           <div className="text-xs font-semibold text-[#617064]">Live Incoming Orders</div>
           <div className="text-3xl font-bold text-amber-600 mt-2">{pendingOrders.length} Orders</div>
-          <div className="text-[11px] text-amber-700 font-semibold mt-1">Cash on Delivery &amp; Escrow</div>
+          <div className="text-[11px] text-amber-700 font-semibold mt-1">Awaiting Packing / Dispatch</div>
         </div>
 
         <div className="p-5 rounded-2xl border border-black/5 bg-white shadow-subtle">
@@ -117,7 +141,7 @@ export default function FarmerDashboard() {
             <Star className="w-6 h-6 text-amber-400 fill-amber-400" />
             <span>4.9/5</span>
           </div>
-          <div className="text-[11px] text-[#2D7A46] font-semibold mt-1">{feedbacks.length} Verified Buyer Reviews</div>
+          <div className="text-[11px] text-[#2D7A46] font-semibold mt-1">Verified Direct Producer</div>
         </div>
       </div>
 
@@ -129,7 +153,7 @@ export default function FarmerDashboard() {
               <span>Real-Time Incoming Buyer Orders</span>
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
             </h3>
-            <span className="text-xs text-[#617064]">Orders placed by users appear here immediately with full dispatch details</span>
+            <span className="text-xs text-[#617064]">Orders placed by buyers for your produce appear here immediately</span>
           </div>
           <Link href="/farmer/orders" className="text-xs font-bold text-[#2D7A46] hover:underline">
             View All Orders Archive →
@@ -150,7 +174,14 @@ export default function FarmerDashboard() {
               </tr>
             </thead>
             <tbody className="divide-y divide-black/5">
-              {farmerOrders.slice(0, 5).map((o) => (
+              {myFarmerOrders.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="p-8 text-center text-xs text-[#617064]">
+                    No incoming orders yet for your farm produce. When buyers order your crops, they will appear here in real-time.
+                  </td>
+                </tr>
+              ) : (
+                myFarmerOrders.slice(0, 5).map((o) => (
                 <tr key={o.id} className="hover:bg-stone-50 transition-colors">
                   <td className="p-3 font-bold text-[#1E2A22]">
                     {o.orderNumber}
@@ -231,7 +262,8 @@ export default function FarmerDashboard() {
                     )}
                   </td>
                 </tr>
-              ))}
+              ))
+              )}
             </tbody>
           </table>
         </div>

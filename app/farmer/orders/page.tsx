@@ -96,16 +96,32 @@ const INITIAL_FARMER_ORDERS: FarmerOrder[] = [
 ];
 
 import { useCrops } from '@/context/CropContext';
+import { useRole } from '@/context/RoleContext';
 
 export default function FarmerOrdersPage() {
   const { toast } = useToast();
+  const { currentUser } = useRole();
   const { farmerOrders, updateFarmerOrderStatus } = useCrops();
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dispatchModalOrder, setDispatchModalOrder] = useState<any | null>(null);
   const [vehicleNo, setVehicleNo] = useState('');
   const [driverContact, setDriverContact] = useState('');
 
-  const filteredOrders = farmerOrders.filter((o) => {
+  const farmerId = currentUser?.id;
+  const isDemoFarmer = !farmerId || currentUser?.full_name?.toLowerCase().includes('rameshwar') || currentUser?.id === 'farmer-1';
+
+  // Strict data isolation: Show only orders belonging to the logged-in farmer
+  const myFarmerOrders = farmerOrders.filter((o) => {
+    if (farmerId && o.farmerId) {
+      return o.farmerId === farmerId;
+    }
+    if (isDemoFarmer) {
+      return !o.farmerId || o.farmerId === 'farmer-1' || o.farmerId === 'farmer-custom';
+    }
+    return false;
+  });
+
+  const filteredOrders = myFarmerOrders.filter((o) => {
     if (statusFilter === 'all') return true;
     return o.fulfillmentStatus === statusFilter;
   });
@@ -183,17 +199,30 @@ export default function FarmerOrdersPage() {
                 : 'bg-white border border-black/5 text-[#617064] hover:bg-stone-50'
             }`}
           >
-            {tab.label} ({farmerOrders.filter((o) => tab.key === 'all' || o.fulfillmentStatus === tab.key).length})
+            {tab.label} ({myFarmerOrders.filter((o) => tab.key === 'all' || o.fulfillmentStatus === tab.key).length})
           </button>
         ))}
       </div>
 
       {/* Orders List */}
       <div className="space-y-4">
-        {filteredOrders.length === 0 ? (
+        {myFarmerOrders.length === 0 ? (
+          <div className="p-12 text-center bg-white rounded-3xl border border-black/5 space-y-3">
+            <div className="w-16 h-16 mx-auto rounded-2xl bg-[#F3FAF4] flex items-center justify-center">
+              <Package className="w-8 h-8 text-[#2D7A46]" />
+            </div>
+            <p className="font-serif text-lg font-bold text-[#1E2A22]">No Incoming Farm Orders Yet</p>
+            <p className="text-xs text-[#617064] max-w-sm mx-auto">
+              When buyers purchase lots from your listed crops, incoming orders will appear here immediately with one-click dispatch and logistics tracking.
+            </p>
+            <Link href="/farmer/listings/new">
+              <Button size="sm">List New Crop Produce</Button>
+            </Link>
+          </div>
+        ) : filteredOrders.length === 0 ? (
           <div className="p-12 text-center bg-white rounded-3xl border border-black/5">
-            <p className="font-serif text-lg font-bold text-[#1E2A22]">No orders found in this status</p>
-            <p className="text-xs text-[#617064] mt-1">Check other fulfillment tabs or promote your crop listings.</p>
+            <p className="font-serif text-lg font-bold text-[#1E2A22]">No orders in "{statusFilter}" status</p>
+            <p className="text-xs text-[#617064] mt-1">Select another status tab to review your orders.</p>
           </div>
         ) : (
           filteredOrders.map((order) => (

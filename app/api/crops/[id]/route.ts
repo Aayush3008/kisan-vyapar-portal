@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
-import { getSupabaseAdmin } from '@/lib/supabase/db';
+import { getSupabaseAdmin, isSupabaseConfigured } from '@/lib/supabase/db';
+import { updateLocalCrop, deleteLocalCrop } from '@/lib/local-db';
+
+export const dynamic = 'force-dynamic';
 
 // PUT /api/crops/[id] — Update a crop listing
 export async function PUT(
@@ -8,10 +11,9 @@ export async function PUT(
 ) {
   try {
     const body = await request.json();
-    const supabase = getSupabaseAdmin();
 
     const updates: Record<string, any> = { ...body };
-    delete updates.id; // Don't update the primary key
+    delete updates.id;
     delete updates._is_custom;
 
     // Recalculate discount price if relevant fields changed
@@ -23,22 +25,29 @@ export async function PUT(
       }
     }
 
-    const { data, error } = await supabase
-      .from('app_crop_listings')
-      .update(updates)
-      .eq('id', params.id)
-      .select()
-      .single();
+    // 1. Update in local storage
+    const localUpdated = updateLocalCrop(params.id, updates);
 
-    if (error) {
-      console.error('[KVP Crops PUT] Supabase error:', error);
-      return NextResponse.json(
-        { error: 'Failed to update crop listing: ' + error.message },
-        { status: 500 }
-      );
+    // 2. Dual-sync to Supabase if configured
+    if (isSupabaseConfigured()) {
+      try {
+        const supabase = getSupabaseAdmin();
+        const { data, error } = await supabase
+          .from('app_crop_listings')
+          .update(updates)
+          .eq('id', params.id)
+          .select()
+          .maybeSingle();
+
+        if (!error && data) {
+          return NextResponse.json({ success: true, crop: data, source: 'supabase' });
+        }
+      } catch (sbErr) {
+        console.warn('[KVP Crops PUT] Supabase update warning:', sbErr);
+      }
     }
 
-    return NextResponse.json({ success: true, crop: data });
+    return NextResponse.json({ success: true, crop: localUpdated, source: 'local' });
   } catch (err: any) {
     console.error('[KVP Crops PUT Error]', err);
     return NextResponse.json(
@@ -54,19 +63,18 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = getSupabaseAdmin();
+    deleteLocalCrop(params.id);
 
-    const { error } = await supabase
-      .from('app_crop_listings')
-      .delete()
-      .eq('id', params.id);
-
-    if (error) {
-      console.error('[KVP Crops DELETE] Supabase error:', error);
-      return NextResponse.json(
-        { error: 'Failed to delete crop listing: ' + error.message },
-        { status: 500 }
-      );
+    if (isSupabaseConfigured()) {
+      try {
+        const supabase = getSupabaseAdmin();
+        await supabase
+          .from('app_crop_listings')
+          .delete()
+          .eq('id', params.id);
+      } catch (sbErr) {
+        console.warn('[KVP Crops DELETE] Supabase delete warning:', sbErr);
+      }
     }
 
     return NextResponse.json({ success: true });

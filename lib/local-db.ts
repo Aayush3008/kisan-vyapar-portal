@@ -25,8 +25,10 @@ const DATA_DIR = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME
   ? path.join('/tmp', 'kisan-data')
   : path.join(process.cwd(), 'data');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
+const ORDERS_FILE = path.join(DATA_DIR, 'orders.json');
+const CROPS_FILE = path.join(DATA_DIR, 'crops.json');
 
-/** Ensure data/ directory and users.json exist */
+/** Ensure data/ directory and files exist */
 function ensureDataDir() {
   try {
     if (!fs.existsSync(DATA_DIR)) {
@@ -34,6 +36,12 @@ function ensureDataDir() {
     }
     if (!fs.existsSync(USERS_FILE)) {
       fs.writeFileSync(USERS_FILE, JSON.stringify([], null, 2), 'utf-8');
+    }
+    if (!fs.existsSync(ORDERS_FILE)) {
+      fs.writeFileSync(ORDERS_FILE, JSON.stringify([], null, 2), 'utf-8');
+    }
+    if (!fs.existsSync(CROPS_FILE)) {
+      fs.writeFileSync(CROPS_FILE, JSON.stringify([], null, 2), 'utf-8');
     }
   } catch (err) {
     console.warn('ensureDataDir warning:', err);
@@ -225,4 +233,157 @@ export function verifyOTP(phone: string, otp: string): { valid: boolean; message
   delete store[normalizedPhone];
   writeOtpStore(store);
   return { valid: true, message: 'OTP verified successfully!' };
+}
+
+// ─── Local Orders Store ──────────────────────────────────────────
+export interface LocalOrder {
+  id: string;
+  orderNumber: string;
+  buyerId?: string;
+  buyerName: string;
+  buyerPhone: string;
+  buyerEmail?: string;
+  cropTitle: string;
+  cropId?: string;
+  farmerId?: string;
+  farmerName?: string;
+  variety: string;
+  quantity: number;
+  unit: string;
+  pricePerUnit: number;
+  discountPercent?: number;
+  discountAmount?: number;
+  totalAmount: number;
+  paymentMethod: 'cod' | 'razorpay';
+  paymentStatus: 'pending' | 'paid' | 'escrow';
+  fulfillmentStatus: 'new' | 'accepted' | 'packed' | 'dispatched' | 'delivered' | 'cancelled';
+  deliveryType: 'Farm Pickup' | 'Farmer Door Delivery';
+  deliveryAddress: string;
+  orderDate: string;
+  transportVehicleNumber?: string;
+  trackingPhone?: string;
+  created_at: string;
+}
+
+export function getAllOrders(): LocalOrder[] {
+  ensureDataDir();
+  try {
+    const raw = fs.readFileSync(ORDERS_FILE, 'utf-8');
+    return JSON.parse(raw) as LocalOrder[];
+  } catch {
+    return [];
+  }
+}
+
+function saveAllOrders(orders: LocalOrder[]) {
+  ensureDataDir();
+  fs.writeFileSync(ORDERS_FILE, JSON.stringify(orders, null, 2), 'utf-8');
+}
+
+export function saveOrder(orderData: Partial<LocalOrder>): LocalOrder {
+  const orders = getAllOrders();
+  const newOrder: LocalOrder = {
+    id: orderData.id || `ord-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+    orderNumber: orderData.orderNumber || `ORD-KVP-${Math.floor(10000 + Math.random() * 90000)}`,
+    buyerId: orderData.buyerId,
+    buyerName: orderData.buyerName || 'Valued Buyer',
+    buyerPhone: orderData.buyerPhone || '',
+    buyerEmail: orderData.buyerEmail,
+    cropTitle: orderData.cropTitle || 'Fresh Harvest Lot',
+    cropId: orderData.cropId,
+    farmerId: orderData.farmerId,
+    farmerName: orderData.farmerName,
+    variety: orderData.variety || 'Standard',
+    quantity: Number(orderData.quantity || 1),
+    unit: orderData.unit || 'quintal',
+    pricePerUnit: Number(orderData.pricePerUnit || 0),
+    discountPercent: Number(orderData.discountPercent || 0),
+    discountAmount: Number(orderData.discountAmount || 0),
+    totalAmount: Number(orderData.totalAmount || 0),
+    paymentMethod: orderData.paymentMethod || 'cod',
+    paymentStatus: orderData.paymentStatus || 'pending',
+    fulfillmentStatus: orderData.fulfillmentStatus || 'new',
+    deliveryType: orderData.deliveryType || 'Farmer Door Delivery',
+    deliveryAddress: orderData.deliveryAddress || 'Farm Gate Pickup',
+    orderDate: orderData.orderDate || new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+    transportVehicleNumber: orderData.transportVehicleNumber,
+    trackingPhone: orderData.trackingPhone,
+    created_at: orderData.created_at || new Date().toISOString(),
+  };
+
+  // Prepend new order
+  orders.unshift(newOrder);
+  saveAllOrders(orders);
+  return newOrder;
+}
+
+export function updateOrder(idOrNumber: string, updates: Partial<LocalOrder>): LocalOrder | undefined {
+  const orders = getAllOrders();
+  const idx = orders.findIndex((o) => o.id === idOrNumber || o.orderNumber === idOrNumber);
+  if (idx === -1) return undefined;
+
+  orders[idx] = { ...orders[idx], ...updates };
+  saveAllOrders(orders);
+  return orders[idx];
+}
+
+export function getOrdersByBuyer(buyerId: string): LocalOrder[] {
+  const orders = getAllOrders();
+  return orders.filter((o) => o.buyerId === buyerId);
+}
+
+export function getOrdersByFarmer(farmerId: string): LocalOrder[] {
+  const orders = getAllOrders();
+  return orders.filter((o) => o.farmerId === farmerId);
+}
+
+// ─── Local Custom Crops Store ────────────────────────────────────
+export function getAllLocalCrops(): any[] {
+  ensureDataDir();
+  try {
+    const raw = fs.readFileSync(CROPS_FILE, 'utf-8');
+    return JSON.parse(raw);
+  } catch {
+    return [];
+  }
+}
+
+function saveAllLocalCrops(crops: any[]) {
+  ensureDataDir();
+  fs.writeFileSync(CROPS_FILE, JSON.stringify(crops, null, 2), 'utf-8');
+}
+
+export function saveLocalCrop(cropData: any): any {
+  const crops = getAllLocalCrops();
+  const newCrop = {
+    ...cropData,
+    id: cropData.id || `crop-${Date.now()}`,
+    created_at: cropData.created_at || new Date().toISOString(),
+  };
+  crops.unshift(newCrop);
+  saveAllLocalCrops(crops);
+  return newCrop;
+}
+
+export function updateLocalCrop(id: string, updates: Partial<any>): any {
+  const crops = getAllLocalCrops();
+  const idx = crops.findIndex((c) => c.id === id);
+  if (idx === -1) {
+    // If not found in custom crops, create an override entry so stock update persists
+    const override = { id, ...updates };
+    crops.push(override);
+    saveAllLocalCrops(crops);
+    return override;
+  }
+
+  crops[idx] = { ...crops[idx], ...updates };
+  saveAllLocalCrops(crops);
+  return crops[idx];
+}
+
+export function deleteLocalCrop(id: string): boolean {
+  const crops = getAllLocalCrops();
+  const filtered = crops.filter((c) => c.id !== id);
+  saveAllLocalCrops(filtered);
+  return true;
 }
