@@ -266,6 +266,10 @@ export function RoleModal() {
       const data = await res.json();
 
       if (!res.ok) {
+        if (data.alreadyRegistered) {
+          setLoginIdentifier(phone.trim());
+          setActiveTab('login');
+        }
         setErrorMessage(data.error || 'Registration failed. Please check inputs.');
         return;
       }

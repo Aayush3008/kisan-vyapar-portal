@@ -80,19 +80,46 @@ export function verifyPassword(password: string, storedHash: string): boolean {
   return candidate === hash;
 }
 
-/** Find a user by phone or email */
+/** Get canonical 10-digit Indian mobile number */
+export function getCanonicalPhone(raw: string): string {
+  const digits = (raw || '').replace(/\D/g, '');
+  return digits.length >= 10 ? digits.slice(-10) : digits;
+}
+
+/** Save or update a single user in local storage */
+export function saveUser(user: LocalUser) {
+  const users = getAllUsers();
+  const cPhone = getCanonicalPhone(user.phone);
+  const idx = users.findIndex(
+    (u) => u.id === user.id || (cPhone && getCanonicalPhone(u.phone) === cPhone)
+  );
+  if (idx !== -1) {
+    users[idx] = { ...users[idx], ...user, updated_at: new Date().toISOString() };
+  } else {
+    users.push(user);
+  }
+  saveUsers(users);
+}
+
+/** Find a user by phone or email with full canonical phone flexibility */
 export function findUser(identifier: string): LocalUser | undefined {
   const users = getAllUsers();
   const clean = identifier.trim().toLowerCase();
   const cleanPhone = clean.replace(/\D/g, '');
+  const canonical = cleanPhone.length >= 10 ? cleanPhone.slice(-10) : '';
 
   return users.find((u) => {
     const uPhone = (u.phone || '').replace(/\D/g, '');
+    const uCanonical = uPhone.length >= 10 ? uPhone.slice(-10) : '';
     const uEmail = (u.email || '').toLowerCase();
+
     return (
+      (canonical && uCanonical === canonical) ||
       uPhone === cleanPhone ||
       u.phone === identifier.trim() ||
-      uEmail === clean
+      uEmail === clean ||
+      (canonical && uEmail === `${canonical}@kisanvyapar.in`) ||
+      (canonical && uEmail === `91${canonical}@kisanvyapar.in`)
     );
   });
 }
@@ -116,13 +143,13 @@ export function createUser(data: {
   cropsGrown?: string[];
 }): LocalUser {
   const users = getAllUsers();
-  const normalizedPhone = data.phone.trim().replace(/\D/g, '');
-  const email = `${normalizedPhone}@kisanvyapar.in`;
+  const canonicalPhone = getCanonicalPhone(data.phone);
+  const email = `${canonicalPhone || data.phone.trim().replace(/\D/g, '')}@kisanvyapar.in`;
 
   // Check for existing user with same phone
   const existing = users.find((u) => {
-    const uPhone = (u.phone || '').replace(/\D/g, '');
-    return uPhone === normalizedPhone;
+    const uCanonical = getCanonicalPhone(u.phone);
+    return canonicalPhone && uCanonical === canonicalPhone;
   });
 
   if (existing) {
@@ -134,7 +161,7 @@ export function createUser(data: {
     id: crypto.randomUUID(),
     email,
     full_name: data.fullName.trim(),
-    phone: data.phone.trim(),
+    phone: canonicalPhone || data.phone.trim(),
     password_hash: hashPassword(data.password),
     role: data.role,
     district: data.district?.trim() || 'Meerut',
@@ -197,12 +224,12 @@ function writeOtpStore(store: Record<string, OtpEntry>) {
 
 /** Generate a 6-digit OTP for the given phone number */
 export function generateOTP(phone: string): string {
-  const normalizedPhone = phone.trim().replace(/\D/g, '');
+  const canonical = getCanonicalPhone(phone);
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
   const store = readOtpStore();
-  store[normalizedPhone] = {
+  store[canonical] = {
     otp,
-    phone: normalizedPhone,
+    phone: canonical,
     expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes
   };
   writeOtpStore(store);
@@ -211,16 +238,19 @@ export function generateOTP(phone: string): string {
 
 /** Verify an OTP for the given phone number */
 export function verifyOTP(phone: string, otp: string): { valid: boolean; message: string } {
-  const normalizedPhone = phone.trim().replace(/\D/g, '');
+  const canonical = getCanonicalPhone(phone);
   const store = readOtpStore();
-  const entry = store[normalizedPhone];
+  // Try canonical phone first, then raw normalized
+  const rawNormalized = phone.trim().replace(/\D/g, '');
+  const entry = store[canonical] || store[rawNormalized];
 
   if (!entry) {
     return { valid: false, message: 'No OTP was sent to this number. Please request a new OTP.' };
   }
 
   if (Date.now() > entry.expiresAt) {
-    delete store[normalizedPhone];
+    delete store[canonical];
+    delete store[rawNormalized];
     writeOtpStore(store);
     return { valid: false, message: 'OTP has expired. Please request a new one.' };
   }
@@ -230,7 +260,8 @@ export function verifyOTP(phone: string, otp: string): { valid: boolean; message
   }
 
   // OTP is valid — remove it so it can't be reused
-  delete store[normalizedPhone];
+  delete store[canonical];
+  delete store[rawNormalized];
   writeOtpStore(store);
   return { valid: true, message: 'OTP verified successfully!' };
 }
