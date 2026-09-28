@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdminSafe } from '@/lib/supabase/db';
 import { getCanonicalPhone, generateOTP } from '@/lib/local-db';
+import { sendMobileOTP } from '@/lib/sms';
 
 export async function POST(request: Request) {
   try {
@@ -48,12 +49,29 @@ export async function POST(request: Request) {
       }
     }
 
-    console.log(`📱 [KVP OTP] Generated OTP ${otp} for phone ${canonicalPhone}`);
+    console.log(`📱 [KVP OTP] Generated OTP ${otp} for phone +91 ${canonicalPhone}`);
 
+    // Dispatch real SMS to the mobile phone
+    const smsResult = await sendMobileOTP(canonicalPhone, otp);
+
+    if (smsResult.sent) {
+      console.log(`✅ [KVP OTP] Real SMS sent to +91 ${canonicalPhone} via ${smsResult.provider}`);
+      return NextResponse.json({
+        success: true,
+        real_sms: true,
+        provider: smsResult.provider,
+        message: `OTP sent to +91 ${canonicalPhone} via SMS! Check your mobile messages.`,
+      });
+    }
+
+    // If SMS gateway is not configured or sending failed, provide demo fallback
+    console.log(`ℹ️ [KVP OTP] SMS gateway not active (${smsResult.message}). Providing demo mode hint.`);
     return NextResponse.json({
       success: true,
-      message: `OTP sent to ${phone.trim()}. Valid for 5 minutes.`,
+      real_sms: false,
+      message: `OTP sent for ${phone.trim()}. (Demo Mode)`,
       otp_hint: otp,
+      sms_warning: smsResult.message,
     });
   } catch (err: any) {
     console.error('[KVP OTP Send Error]', err);
@@ -63,3 +81,4 @@ export async function POST(request: Request) {
     );
   }
 }
+

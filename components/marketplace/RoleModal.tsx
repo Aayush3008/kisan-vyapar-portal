@@ -19,7 +19,8 @@ import {
   MessageSquare,
   CheckCircle2,
   RefreshCw,
-  Timer
+  Timer,
+  Smartphone
 } from 'lucide-react';
 import { useRole } from '@/context/RoleContext';
 import { Button } from '@/components/ui/Button';
@@ -48,6 +49,7 @@ export function RoleModal() {
   const [otpStep, setOtpStep] = useState<'form' | 'otp-sent' | 'verified'>('form');
   const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', '']);
   const [otpHint, setOtpHint] = useState<string | null>(null);
+  const [isRealSms, setIsRealSms] = useState(false);
   const [otpTimer, setOtpTimer] = useState(0);
   const [otpVerified, setOtpVerified] = useState(false);
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -101,10 +103,13 @@ export function RoleModal() {
       setOtpDigits(['', '', '', '', '', '']);
       setOtpTimer(300); // 5 minutes
       setOtpHint(data.otp_hint || null);
-      setSuccessMessage(`OTP sent to ${phone.trim()}! Check your messages.`);
+      setIsRealSms(Boolean(data.real_sms));
+      setSuccessMessage(data.message || `OTP sent to ${phone.trim()}! Check your messages.`);
 
-      if (data.otp_hint) {
-        toast(`📱 Your OTP is: ${data.otp_hint} (Demo Mode)`, 'success');
+      if (data.real_sms) {
+        toast(`📲 Real OTP sent to +91 ${phone.trim().slice(-10)} via SMS!`, 'success');
+      } else if (data.otp_hint) {
+        toast(`📱 Your OTP is: ${data.otp_hint} (Demo Mode)`, 'info');
       }
 
       // Focus first OTP input
@@ -644,10 +649,26 @@ export function RoleModal() {
                     </div>
                   </div>
 
-                  {/* OTP hint banner (demo mode) */}
-                  {otpHint && (
-                    <div className="mb-3 p-2 rounded-lg bg-emerald-100/80 border border-emerald-200 text-emerald-800 text-[10px] text-center font-bold">
-                      📱 Demo Mode — Your OTP is: <span className="text-sm tracking-[0.3em] font-mono">{otpHint}</span>
+                  {/* Real SMS notification banner */}
+                  {isRealSms && (
+                    <div className="mb-3 p-2.5 rounded-lg bg-emerald-50 border border-emerald-300 text-emerald-900 text-xs text-center font-medium shadow-sm flex items-center justify-center space-x-2">
+                      <Smartphone className="w-4 h-4 text-emerald-600 flex-shrink-0 animate-pulse" />
+                      <span>
+                        Real OTP sent via SMS to <strong>+91 {phone.trim().slice(-10)}</strong>. Check your phone&apos;s SMS inbox!
+                      </span>
+                    </div>
+                  )}
+
+                  {/* OTP hint banner (demo mode fallback) */}
+                  {!isRealSms && otpHint && (
+                    <div className="mb-3 p-2.5 rounded-lg bg-amber-50 border border-amber-300 text-amber-900 text-[11px] text-center font-medium">
+                      <div className="flex items-center justify-center space-x-1.5 mb-1 font-bold text-amber-900">
+                        <span>📱 Demo Mode — Your OTP is:</span>
+                        <span className="text-sm tracking-[0.25em] font-mono bg-amber-200/90 text-amber-950 px-2 py-0.5 rounded font-black">{otpHint}</span>
+                      </div>
+                      <p className="text-[10px] text-amber-700 font-normal">
+                        To receive OTP directly on your mobile as real SMS, set <code className="font-mono bg-amber-100 px-1 rounded">FAST2SMS_API_KEY</code> in <code className="font-mono bg-amber-100 px-1 rounded">.env.local</code>.
+                      </p>
                     </div>
                   )}
 
